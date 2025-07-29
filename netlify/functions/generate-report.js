@@ -54,14 +54,23 @@ exports.handler = async (event, context) => {
             });
             
             const overviewData = await overviewResponse.json();
+            console.log('Overview API Response:', JSON.stringify(overviewData, null, 2));
             
-            if (overviewData.tasks && overviewData.tasks[0] && overviewData.tasks[0].result) {
-                const result = overviewData.tasks[0].result[0];
-                report.overview = {
-                    organic_traffic: result.metrics?.organic?.count || 0,
-                    organic_keywords: result.metrics?.organic?.pos_1 || 0,
-                    traffic_value: result.metrics?.organic?.etv || 0
-                };
+            if (overviewData.tasks && overviewData.tasks[0]) {
+                if (overviewData.tasks[0].status_code !== 20000) {
+                    console.log('API Error:', overviewData.tasks[0].status_message);
+                }
+                
+                if (overviewData.tasks[0].result && overviewData.tasks[0].result[0]) {
+                    const result = overviewData.tasks[0].result[0];
+                    // Try different possible field structures
+                    report.overview = {
+                        organic_traffic: result.metrics?.organic?.count || result.organic?.count || 0,
+                        organic_keywords: result.metrics?.organic?.pos || result.organic?.pos_1_10 || 0,
+                        traffic_value: result.metrics?.organic?.etv || result.organic?.etv || 0
+                    };
+                    console.log('Extracted metrics:', report.overview);
+                }
             }
         }
         
