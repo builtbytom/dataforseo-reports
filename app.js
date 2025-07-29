@@ -16,6 +16,8 @@ document.getElementById('reportForm').addEventListener('submit', async (e) => {
     document.querySelector('button[type="submit"]').disabled = true;
     
     try {
+        console.log('Calling function with:', { domain, reportType, keywords });
+        
         // Call our Netlify function
         const response = await fetch('/.netlify/functions/generate-report', {
             method: 'POST',
@@ -29,17 +31,27 @@ document.getElementById('reportForm').addEventListener('submit', async (e) => {
             })
         });
         
+        console.log('Response status:', response.status);
+        
         if (!response.ok) {
-            const error = await response.json();
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            let error;
+            try {
+                error = JSON.parse(errorText);
+            } catch {
+                error = { message: errorText };
+            }
             throw new Error(error.message || 'Failed to generate report');
         }
         
         const data = await response.json();
+        console.log('Response data:', data);
         currentReport = data;
         displayReport(data);
         
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Full error:', error);
         document.getElementById('error').style.display = 'block';
         document.getElementById('error').textContent = error.message || 'Failed to generate report. Please try again.';
     } finally {
