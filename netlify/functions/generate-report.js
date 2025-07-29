@@ -17,6 +17,12 @@ exports.handler = async (event, context) => {
         const password = process.env.DATAFORSEO_PASSWORD;
         
         if (!login || !password) {
+            console.log('Environment check:', {
+                hasLogin: !!login,
+                hasPassword: !!password,
+                loginLength: login ? login.length : 0,
+                envKeys: Object.keys(process.env).filter(k => k.includes('DATAFORSEO'))
+            });
             return {
                 statusCode: 500,
                 body: JSON.stringify({ message: 'DataForSEO credentials not configured' })
