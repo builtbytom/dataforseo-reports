@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO Report Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SEO Report Generator</h1>
+            <p>Professional SEO reports in seconds</p>
+        </header>
+
+        <main>
+            <!-- Report Generator Form -->
+            <div class="card" id="generatorCard">
+                <h2>Generate New Report</h2>
+                
+                <form id="reportForm">
+                    <div class="form-group">
+                        <label for="domain">Domain to Analyze</label>
+                        <input type="text" id="domain" name="domain" placeholder="example.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Report Type</label>
+                        <div class="report-options">
+                            <label class="option">
+                                <input type="radio" name="reportType" value="quick" checked>
+                                <div class="option-content">
+                                    <strong>Quick Overview</strong>
+                                    <span>Traffic & basic metrics (1 credit)</span>
+                                </div>
+                            </label>
+                            
+                            <label class="option">
+                                <input type="radio" name="reportType" value="standard">
+                                <div class="option-content">
+                                    <strong>Standard Report</strong>
+                                    <span>Overview + backlinks (2 credits)</span>
+                                </div>
+                            </label>
+                            
+                            <label class="option">
+                                <input type="radio" name="reportType" value="detailed">
+                                <div class="option-content">
+                                    <strong>Detailed Analysis</strong>
+                                    <span>Full report + keywords (3 credits)</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="keywordsGroup" style="display: none;">
+                        <label for="keywords">Keywords to Analyze (Optional)</label>
+                        <textarea id="keywords" name="keywords" rows="3" 
+                                  placeholder="Enter keywords separated by commas"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Generate Report</button>
+                </form>
+
+                <div id="loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Generating your report...</p>
+                </div>
+
+                <div id="error" class="error" style="display: none;"></div>
+            </div>
+
+            <!-- Report Display -->
+            <div id="reportDisplay" style="display: none;">
+                <div class="report-actions">
+                    <button onclick="shareReport()" class="btn btn-secondary">Share Report</button>
+                    <button onclick="window.print()" class="btn btn-secondary">Download PDF</button>
+                    <button onclick="newReport()" class="btn btn-primary">New Report</button>
+                </div>
+
+                <div class="card">
+                    <div id="reportContent"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
