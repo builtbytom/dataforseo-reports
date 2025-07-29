@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Function Test</title>
+</head>
+<body>
+    <h1>Testing Netlify Function</h1>
+    <button onclick="testFunction()">Test Function</button>
+    <pre id="result"></pre>
+    
+    <script>
+    async function testFunction() {
+        try {
+            const response = await fetch('/.netlify/functions/generate-report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    domain: 'google.com',
+                    reportType: 'quick',
+                    keywords: []
+                })
+            });
+            
+            const data = await response.text();
+            document.getElementById('result').textContent = 
+                `Status: ${response.status}\nResponse: ${data}`;
+        } catch (error) {
+            document.getElementById('result').textContent = 
+                `Error: ${error.message}`;
+        }
+    }
+    </script>
+</body>
+</html>

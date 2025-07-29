@@ -5,5 +5,8 @@
   "private": true,
   "dependencies": {
     "node-fetch": "^2.6.7"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^1.0.0"
   }
 }
