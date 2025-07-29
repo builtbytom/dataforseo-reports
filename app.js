@@ -80,6 +80,25 @@ function displayReport(data) {
         <p style="color: #64748b; margin-bottom: 2rem;">Generated on ${new Date().toLocaleDateString()}</p>
     `;
     
+    // Debug - show raw data
+    console.log('Displaying data:', data);
+    
+    // Show a message if no data
+    if (!data.overview && !data.backlinks && !data.keywords) {
+        html += `
+            <div class="card" style="text-align: center; padding: 3rem;">
+                <h2 style="color: #ef4444; margin-bottom: 1rem;">No Data Available</h2>
+                <p style="color: #64748b; margin-bottom: 2rem;">DataForSEO returned no metrics for this domain.</p>
+                <p style="color: #64748b;">This could mean:</p>
+                <ul style="text-align: left; display: inline-block; color: #64748b;">
+                    <li>The domain is too new or small</li>
+                    <li>The domain isn't indexed by DataForSEO</li>
+                    <li>Try a larger domain like amazon.com or google.com</li>
+                </ul>
+            </div>
+        `;
+    }
+    
     // Domain Overview
     if (data.overview) {
         html += `
