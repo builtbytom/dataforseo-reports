@@ -41,6 +41,9 @@ exports.handler = async (event, context) => {
             generated_at: new Date().toISOString()
         };
         
+        // Log the domain we're checking
+        console.log('Checking domain:', domain);
+        
         // Quick Overview - just domain metrics
         if (reportType === 'quick' || reportType === 'standard' || reportType === 'detailed') {
             const overviewResponse = await fetch('https://api.dataforseo.com/v3/domain_analytics/google/organic/domain_overview/live', {

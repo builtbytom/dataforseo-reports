@@ -5,7 +5,9 @@ let currentReport = null;
 document.getElementById('reportForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const domain = document.getElementById('domain').value.trim();
+    let domain = document.getElementById('domain').value.trim();
+    // Remove protocol if present
+    domain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const reportType = document.querySelector('input[name="reportType"]:checked').value;
     const keywordsText = document.getElementById('keywords').value;
     const keywords = keywordsText ? keywordsText.split(',').map(k => k.trim()).filter(k => k) : [];
