@@ -260,6 +260,7 @@ exports.handler = async (event, context) => {
         if (reportType === 'detailed') {
             try {
                 // 1. Get keywords this domain ranks for
+                // Get keywords with filters for local/relevant terms
                 const rankedKeywordsResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live', {
                     method: 'POST',
                     headers,
@@ -267,8 +268,11 @@ exports.handler = async (event, context) => {
                         target: domain,
                         location_code: 2840,
                         language_code: 'en',
-                        limit: 30,
-                        order_by: ["keyword_data.keyword_info.search_volume,desc"]
+                        limit: 100,  // Get more to filter through
+                        filters: [
+                            ["keyword_data.keyword_info.search_volume", ">=", 10],  // Min 10 searches
+                            ["ranked_serp_element.rank_absolute", "<=", 50]  // Top 50 positions
+                        ]
                     }])
                 });
                 
@@ -286,10 +290,30 @@ exports.handler = async (event, context) => {
                         const items = task.result[0].items || [];
                         console.log(`Found ${items.length} total keywords for ${domain}`);
                         
+                        // Prioritize local keywords
+                        const businessCity = report.competitors?.[0]?.address?.split(',')[1]?.trim() || '';
+                        const localTerms = ['near me', 'connecticut', 'ct', 'north haven', businessCity.toLowerCase()];
+                        
+                        // Sort items to prioritize local keywords
+                        items.sort((a, b) => {
+                            const aKeyword = (a.keyword_data?.keyword || '').toLowerCase();
+                            const bKeyword = (b.keyword_data?.keyword || '').toLowerCase();
+                            
+                            // Check if keywords contain local terms
+                            const aIsLocal = localTerms.some(term => aKeyword.includes(term));
+                            const bIsLocal = localTerms.some(term => bKeyword.includes(term));
+                            
+                            if (aIsLocal && !bIsLocal) return -1;
+                            if (!aIsLocal && bIsLocal) return 1;
+                            
+                            // Then sort by position
+                            return (a.ranked_serp_element?.rank_absolute || 100) - (b.ranked_serp_element?.rank_absolute || 100);
+                        });
+                        
                         // Separate into different buckets
                         report.topKeywords = items
                             .filter(item => item.ranked_serp_element?.rank_absolute <= 10)
-                            .slice(0, 10)
+                            .slice(0, 15)  // Show more keywords
                             .map(item => ({
                                 keyword: item.keyword_data?.keyword || '',
                                 position: item.ranked_serp_element?.rank_absolute || 0,
@@ -326,8 +350,11 @@ exports.handler = async (event, context) => {
                             target: competitorDomain,
                             location_code: 2840,
                             language_code: 'en',
-                            limit: 20,
-                            order_by: ["keyword_data.keyword_info.search_volume,desc"]
+                            limit: 50,
+                            filters: [
+                                ["keyword_data.keyword_info.search_volume", ">=", 50],
+                                ["ranked_serp_element.rank_absolute", "<=", 10]
+                            ]
                         }])
                     });
                     
@@ -337,11 +364,19 @@ exports.handler = async (event, context) => {
                         const competitorKeywords = competitorData.tasks[0].result[0].items;
                         const ourKeywords = new Set(report.topKeywords.map(k => k.keyword.toLowerCase()));
                         
+                        // Filter for relevant keywords (not barber keywords for a salon)
+                        const businessType = domain.includes('salon') ? 'salon' : 'business';
+                        const irrelevantTerms = businessType === 'salon' ? 
+                            ['barber', 'barbershop', 'supercut'] : [];
+                        
                         report.keywordGaps = competitorKeywords
                             .filter(item => {
-                                // Only include if we don't rank for it
-                                return !ourKeywords.has(item.keyword_data?.keyword?.toLowerCase()) && 
-                                       item.ranked_serp_element?.rank_absolute <= 20; // Only show if competitor ranks well
+                                const keyword = item.keyword_data?.keyword?.toLowerCase() || '';
+                                // Skip irrelevant keywords
+                                if (irrelevantTerms.some(term => keyword.includes(term))) return false;
+                                // Only include if we don't rank for it and competitor ranks well
+                                return !ourKeywords.has(keyword) && 
+                                       item.ranked_serp_element?.rank_absolute <= 20;
                             })
                             .slice(0, 10)
                             .map(item => ({
