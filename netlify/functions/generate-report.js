@@ -103,46 +103,53 @@ exports.handler = async (event, context) => {
                     }
                 }
                 
-                // Also get competitor data for standard/detailed reports
+                // Get competitor data - but handle small/local sites better
                 if (reportType === 'standard' || reportType === 'detailed') {
-                    const competitorsResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/competitors_domain/live', {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify([{
-                            target: domain,
-                            location_code: 2840,
-                            language_code: 'en',
-                            limit: 5,
-                            include_subdomains: false
-                        }])
-                    });
-                    
-                    const competitorsData = await competitorsResponse.json();
-                    console.log('Competitors API Response:', JSON.stringify(competitorsData, null, 2));
-                    
-                    if (competitorsData.tasks && competitorsData.tasks[0] && competitorsData.tasks[0].result) {
-                        const items = competitorsData.tasks[0].result[0]?.items || [];
-                        console.log('First competitor item:', JSON.stringify(items[0], null, 2));
+                    try {
+                        // For small local businesses, try searching for similar businesses
+                        const domainParts = domain.split('.');
+                        const businessName = domainParts[0];
                         
-                        // Filter out generic social media and directory sites
-                        const excludedDomains = ['facebook.com', 'instagram.com', 'twitter.com', 'youtube.com', 
-                                               'yelp.com', 'yellowpages.com', 'tiktok.com', 'pinterest.com',
-                                               'linkedin.com', 'google.com', 'amazon.com', 'wikipedia.org'];
+                        // Search for similar businesses using SERP
+                        const serpResponse = await fetch('https://api.dataforseo.com/v3/serp/google/organic/live/regular', {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify([{
+                                keyword: `${businessName.replace(/[^a-z0-9]/gi, ' ')} competitors Connecticut`,
+                                location_code: 2840,
+                                language_code: 'en',
+                                num: 20
+                            }])
+                        });
                         
-                        report.competitors = items
-                            .filter(comp => !excludedDomains.includes(comp.domain))
-                            .slice(0, 5)
-                            .map(comp => ({
-                                domain: comp.domain,
-                                overlap_keywords: comp.common_keywords || 0,
-                                their_traffic: Math.round(comp.etv || 0),
-                                their_keywords: comp.keywords_count || 0
+                        const serpData = await serpResponse.json();
+                        console.log('SERP Competitor Search:', serpData.tasks?.[0]?.status_message);
+                        
+                        if (serpData.tasks && serpData.tasks[0] && serpData.tasks[0].result) {
+                            const items = serpData.tasks[0].result[0]?.items || [];
+                            
+                            // Extract domains from search results
+                            const competitorDomains = items
+                                .filter(item => item.type === 'organic' && item.domain)
+                                .map(item => item.domain)
+                                .filter(d => d !== domain) // Exclude self
+                                .filter(d => !['facebook.com', 'instagram.com', 'yelp.com', 'youtube.com', 
+                                            'yellowpages.com', 'tiktok.com', 'pinterest.com'].includes(d))
+                                .slice(0, 5);
+                            
+                            // Create simplified competitor data
+                            report.competitors = competitorDomains.map(d => ({
+                                domain: d,
+                                overlap_keywords: 'N/A',
+                                their_traffic: 'N/A',
+                                their_keywords: 'N/A'
                             }));
-                        
-                        // If we filtered out too many, show a message
-                        if (report.competitors.length === 0 && items.length > 0) {
-                            console.log('All competitors were social media sites');
+                        } else {
+                            report.competitors = [];
                         }
+                    } catch (error) {
+                        console.error('Error finding competitors:', error);
+                        report.competitors = [];
                     }
                 }
             } catch (error) {

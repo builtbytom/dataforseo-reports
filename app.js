@@ -148,9 +148,9 @@ function displayReport(data) {
             html += `
                 <tr>
                     <td>${comp.domain}</td>
-                    <td>${formatNumber(comp.overlap_keywords)}</td>
-                    <td>${formatNumber(Math.round(comp.their_traffic))}</td>
-                    <td>${formatNumber(comp.their_keywords)}</td>
+                    <td>${comp.overlap_keywords === 'N/A' ? 'N/A' : formatNumber(comp.overlap_keywords)}</td>
+                    <td>${comp.their_traffic === 'N/A' ? 'N/A' : formatNumber(Math.round(comp.their_traffic))}</td>
+                    <td>${comp.their_keywords === 'N/A' ? 'N/A' : formatNumber(comp.their_keywords)}</td>
                 </tr>
             `;
         });
