@@ -338,11 +338,15 @@ exports.handler = async (event, context) => {
                         const ourKeywords = new Set(report.topKeywords.map(k => k.keyword.toLowerCase()));
                         
                         report.keywordGaps = competitorKeywords
-                            .filter(item => !ourKeywords.has(item.keyword_data?.keyword?.toLowerCase()))
+                            .filter(item => {
+                                // Only include if we don't rank for it
+                                return !ourKeywords.has(item.keyword_data?.keyword?.toLowerCase()) && 
+                                       item.ranked_serp_element?.rank_absolute <= 20; // Only show if competitor ranks well
+                            })
                             .slice(0, 10)
                             .map(item => ({
                                 keyword: item.keyword_data?.keyword || '',
-                                competitor_position: item.ranked_serp_element?.rank_absolute || 0,
+                                competitor_position: item.ranked_serp_element?.rank_absolute || 'N/A',
                                 volume: item.keyword_data?.keyword_info?.search_volume || 0,
                                 competitor: report.competitors[0].name
                             }));

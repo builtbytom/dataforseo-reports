@@ -198,38 +198,52 @@ function displayReport(data) {
         `;
     }
     
+    // Show a special section for detailed reports
+    if (data.hasOwnProperty('topKeywords')) {
+        html += `<h2 style="margin: 2rem 0 1rem;">📊 Detailed SEO Analysis</h2>`;
+    }
+    
     // Top Keywords the domain ranks for (Page 1)
-    if (data.topKeywords && data.topKeywords.length > 0) {
-        html += `
-            <h2 style="margin: 2rem 0 1rem;">🏆 Top Ranking Keywords (Page 1)</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Keyword</th>
-                        <th>Position</th>
-                        <th>Monthly Searches</th>
-                        <th>URL</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-        
-        data.topKeywords.forEach(kw => {
-            const shortUrl = kw.url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 40);
+    if (data.hasOwnProperty('topKeywords')) {
+        if (data.topKeywords.length > 0) {
             html += `
-                <tr>
-                    <td>${kw.keyword}</td>
-                    <td style="text-align: center; font-weight: bold; color: ${kw.position <= 3 ? '#10b981' : '#3b82f6'}">#${kw.position}</td>
-                    <td>${formatNumber(kw.volume)}</td>
-                    <td title="${kw.url}" style="font-size: 0.85em; color: #64748b;">${shortUrl}${shortUrl.length >= 40 ? '...' : ''}</td>
-                </tr>
+                <h3 style="margin: 2rem 0 1rem;">🏆 Top Ranking Keywords (Page 1)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Keyword</th>
+                            <th>Position</th>
+                            <th>Monthly Searches</th>
+                            <th>URL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
             `;
-        });
-        
-        html += `
-                </tbody>
-            </table>
-        `;
+            
+            data.topKeywords.forEach(kw => {
+                const shortUrl = kw.url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 40);
+                html += `
+                    <tr>
+                        <td>${kw.keyword}</td>
+                        <td style="text-align: center; font-weight: bold; color: ${kw.position <= 3 ? '#10b981' : '#3b82f6'}">#${kw.position}</td>
+                        <td>${formatNumber(kw.volume)}</td>
+                        <td title="${kw.url}" style="font-size: 0.85em; color: #64748b;">${shortUrl}${shortUrl.length >= 40 ? '...' : ''}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+        } else {
+            html += `
+                <div style="background: #fef3c7; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
+                    <h3 style="margin: 0 0 0.5rem 0;">📈 Limited Keyword Rankings Found</h3>
+                    <p style="margin: 0; color: #92400e;">This domain has few keywords ranking on page 1. Focus on the keyword opportunities below to improve visibility.</p>
+                </div>
+            `;
+        }
     }
     
     // Keyword Opportunities (positions 11-30)
