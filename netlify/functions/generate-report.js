@@ -118,13 +118,31 @@ exports.handler = async (event, context) => {
                     });
                     
                     const competitorsData = await competitorsResponse.json();
+                    console.log('Competitors API Response:', JSON.stringify(competitorsData, null, 2));
+                    
                     if (competitorsData.tasks && competitorsData.tasks[0] && competitorsData.tasks[0].result) {
-                        report.competitors = competitorsData.tasks[0].result[0]?.items?.slice(0, 5).map(comp => ({
-                            domain: comp.domain,
-                            overlap_keywords: comp.metrics?.organic?.common || 0,
-                            their_traffic: comp.metrics?.organic?.etv || 0,
-                            their_keywords: comp.metrics?.organic?.count || 0
-                        })) || [];
+                        const items = competitorsData.tasks[0].result[0]?.items || [];
+                        console.log('First competitor item:', JSON.stringify(items[0], null, 2));
+                        
+                        // Filter out generic social media and directory sites
+                        const excludedDomains = ['facebook.com', 'instagram.com', 'twitter.com', 'youtube.com', 
+                                               'yelp.com', 'yellowpages.com', 'tiktok.com', 'pinterest.com',
+                                               'linkedin.com', 'google.com', 'amazon.com', 'wikipedia.org'];
+                        
+                        report.competitors = items
+                            .filter(comp => !excludedDomains.includes(comp.domain))
+                            .slice(0, 5)
+                            .map(comp => ({
+                                domain: comp.domain,
+                                overlap_keywords: comp.common_keywords || 0,
+                                their_traffic: Math.round(comp.etv || 0),
+                                their_keywords: comp.keywords_count || 0
+                            }));
+                        
+                        // If we filtered out too many, show a message
+                        if (report.competitors.length === 0 && items.length > 0) {
+                            console.log('All competitors were social media sites');
+                        }
                     }
                 }
             } catch (error) {
