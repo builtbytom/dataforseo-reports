@@ -76,8 +76,15 @@ function displayReport(data) {
     document.getElementById('reportDisplay').style.display = 'block';
     
     let html = `
-        <h1 style="margin-bottom: 1rem;">SEO Report: ${data.domain}</h1>
-        <p style="color: #64748b; margin-bottom: 2rem;">Generated on ${new Date().toLocaleDateString()}</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+            <div>
+                <h1 style="margin-bottom: 0.5rem;">SEO Report: ${data.domain}</h1>
+                <p style="color: #64748b; margin: 0;">Generated on ${new Date().toLocaleDateString()}</p>
+            </div>
+            <button onclick="newReport()" style="background: #6366f1; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; font-size: 1rem; cursor: pointer;">
+                ← Back to Generator
+            </button>
+        </div>
     `;
     
     // Debug - show raw data

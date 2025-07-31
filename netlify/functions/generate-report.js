@@ -61,32 +61,28 @@ exports.handler = async (event, context) => {
         // Get REAL domain metrics using DataForSEO Labs
         if (reportType === 'quick' || reportType === 'standard' || reportType === 'detailed') {
             try {
-                // Use Domain Metrics endpoint for real data
-                const metricsResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/domain_metrics_by_categories/live', {
+                // Use Domain Ranking Distribution endpoint for traffic estimates
+                const rankingResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/domain_rank_overview/live', {
                     method: 'POST',
                     headers,
                     body: JSON.stringify([{
                         target: domain,
                         location_code: 2840,
-                        language_code: 'en',
-                        include_subdomains: false
+                        language_code: 'en'
                     }])
                 });
                 
-                const metricsData = await metricsResponse.json();
-                console.log('Domain Metrics Response:', JSON.stringify(metricsData, null, 2));
+                const rankingData = await rankingResponse.json();
+                console.log('Domain Ranking Response:', JSON.stringify(rankingData, null, 2));
                 
-                if (metricsData.tasks && metricsData.tasks[0] && metricsData.tasks[0].result) {
-                    const metrics = metricsData.tasks[0].result[0]?.metrics;
-                    if (metrics) {
-                        report.overview = {
-                            organic_traffic: metrics.organic?.etv || 0,
-                            organic_keywords: metrics.organic?.count || 0,
-                            traffic_value: metrics.organic?.estimated_paid_traffic_cost || 0,
-                            visibility_trend: metrics.organic?.traffic_monthly || []
-                        };
-                        console.log('Real domain metrics:', report.overview);
-                    }
+                if (rankingData.tasks && rankingData.tasks[0] && rankingData.tasks[0].result && rankingData.tasks[0].result[0]) {
+                    const result = rankingData.tasks[0].result[0];
+                    report.overview = {
+                        organic_traffic: Math.round(result.metrics?.organic?.etv || 0),
+                        organic_keywords: result.metrics?.organic?.count || 0,
+                        traffic_value: Math.round(result.metrics?.organic?.estimated_paid_traffic_cost || 0)
+                    };
+                    console.log('Domain metrics from ranking:', report.overview);
                 }
                 
                 // Also get competitor data for standard/detailed reports
