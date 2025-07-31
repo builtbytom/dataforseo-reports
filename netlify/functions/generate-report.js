@@ -103,69 +103,69 @@ exports.handler = async (event, context) => {
                     }
                 }
                 
-                // Get competitor data - but handle small/local sites better
+                // Get competitor data using Google Maps for local businesses
                 if (reportType === 'standard' || reportType === 'detailed') {
                     try {
-                        // For small local businesses, try searching for similar businesses
-                        const domainParts = domain.split('.');
-                        const businessName = domainParts[0];
+                        // For local businesses, use Google Maps to find actual competitors
+                        const businessName = domain.split('.')[0].replace(/[^a-z0-9]/gi, ' ');
                         
-                        // Search for similar businesses using SERP
-                        // Try to identify the business type from the domain name
-                        let searchQuery = '';
-                        if (businessName.includes('salon') || businessName.includes('spa')) {
-                            searchQuery = 'hair salons spa Connecticut';
-                        } else if (businessName.includes('restaurant') || businessName.includes('pizza')) {
-                            searchQuery = 'restaurants near me Connecticut';
-                        } else if (businessName.includes('law') || businessName.includes('legal')) {
-                            searchQuery = 'law firms Connecticut';
-                        } else {
-                            // Generic local business search
-                            searchQuery = `${businessName.replace(/[^a-z0-9]/gi, ' ')} near Connecticut`;
-                        }
-                        
-                        const serpResponse = await fetch('https://api.dataforseo.com/v3/serp/google/organic/live/regular', {
+                        // First, search Google Maps for the business to get its category
+                        const mapsSearchResponse = await fetch('https://api.dataforseo.com/v3/serp/google/maps/live/advanced', {
                             method: 'POST',
                             headers,
                             body: JSON.stringify([{
-                                keyword: searchQuery,
+                                keyword: businessName + ' Connecticut',
                                 location_code: 2840,
-                                language_code: 'en',
-                                num: 20
+                                language_code: 'en'
                             }])
                         });
                         
-                        const serpData = await serpResponse.json();
-                        console.log('SERP Competitor Search Query:', searchQuery);
-                        console.log('SERP Competitor Search Status:', serpData.tasks?.[0]?.status_message);
+                        const mapsData = await mapsSearchResponse.json();
+                        console.log('Maps Search Response:', mapsData.tasks?.[0]?.status_message);
                         
-                        if (serpData.tasks && serpData.tasks[0] && serpData.tasks[0].result) {
-                            const items = serpData.tasks[0].result[0]?.items || [];
+                        // Get the business category from the first result
+                        let category = 'business';
+                        if (mapsData.tasks?.[0]?.result?.[0]?.items?.[0]) {
+                            const firstResult = mapsData.tasks[0].result[0].items[0];
+                            category = firstResult.category || firstResult.place_type || 'business';
+                            console.log('Detected business category:', category);
+                        }
+                        
+                        // Now search for similar businesses in the area
+                        const competitorSearchResponse = await fetch('https://api.dataforseo.com/v3/serp/google/maps/live/advanced', {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify([{
+                                keyword: category + ' near Connecticut',
+                                location_code: 2840,
+                                language_code: 'en',
+                                depth: 20
+                            }])
+                        });
+                        
+                        const competitorData = await competitorSearchResponse.json();
+                        
+                        if (competitorData.tasks?.[0]?.result?.[0]?.items) {
+                            const mapItems = competitorData.tasks[0].result[0].items;
                             
-                            // Extract domains from search results
-                            const competitorDomains = items
-                                .filter(item => item.type === 'organic' && item.domain)
-                                .map(item => item.domain)
-                                .filter(d => d !== domain) // Exclude self
-                                .filter(d => !['facebook.com', 'instagram.com', 'yelp.com', 'youtube.com', 
-                                            'yellowpages.com', 'tiktok.com', 'pinterest.com', 'reddit.com',
-                                            'ctpost.com', 'patch.com', 'wikipedia.org', 'linkedin.com',
-                                            'twitter.com', 'nextdoor.com', 'groupon.com', 'google.com',
-                                            'apple.com', 'mapquest.com', 'tripadvisor.com'].includes(d))
-                                .slice(0, 5);
+                            // Extract competitor info from Maps results
+                            report.competitors = mapItems
+                                .filter(item => item.domain && item.domain !== domain)
+                                .slice(0, 5)
+                                .map(item => ({
+                                    domain: item.domain || item.title,
+                                    name: item.title,
+                                    rating: item.rating?.value || 'N/A',
+                                    reviews: item.rating?.votes_count || 0,
+                                    address: item.address || 'N/A'
+                                }));
                             
-                            // Create simplified competitor data
-                            report.competitors = competitorDomains.map(d => ({
-                                domain: d,
-                                overlap_keywords: 'N/A',
-                                their_traffic: 'N/A',
-                                their_keywords: 'N/A'
-                            }));
+                            console.log(`Found ${report.competitors.length} local competitors`);
                         } else {
                             report.competitors = [];
                         }
                     } catch (error) {
-                        console.error('Error finding competitors:', error);
+                        console.error('Error finding Maps competitors:', error);
                         report.competitors = [];
                     }
                 }

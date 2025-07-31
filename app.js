@@ -131,28 +131,41 @@ function displayReport(data) {
     // Competitors Section
     if (data.competitors && data.competitors.length > 0) {
         html += `
-            <h2 style="margin: 2rem 0 1rem;">Top Competitors</h2>
+            <h2 style="margin: 2rem 0 1rem;">Local Competitors (from Google Maps)</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>Competitor Domain</th>
-                        <th>Common Keywords</th>
-                        <th>Their Traffic</th>
-                        <th>Their Keywords</th>
+                        <th>Business Name</th>
+                        <th>Website</th>
+                        <th>Rating</th>
+                        <th>Reviews</th>
+                        <th>Location</th>
                     </tr>
                 </thead>
                 <tbody>
         `;
         
         data.competitors.forEach(comp => {
-            html += `
-                <tr>
-                    <td>${comp.domain}</td>
-                    <td>${comp.overlap_keywords === 'N/A' ? 'N/A' : formatNumber(comp.overlap_keywords)}</td>
-                    <td>${comp.their_traffic === 'N/A' ? 'N/A' : formatNumber(Math.round(comp.their_traffic))}</td>
-                    <td>${comp.their_keywords === 'N/A' ? 'N/A' : formatNumber(comp.their_keywords)}</td>
-                </tr>
-            `;
+            // Handle both old and new data formats
+            if (comp.name) {
+                // New Maps format
+                html += `
+                    <tr>
+                        <td>${comp.name}</td>
+                        <td>${comp.domain.includes('.') ? comp.domain : 'No website'}</td>
+                        <td>${comp.rating}</td>
+                        <td>${formatNumber(comp.reviews)}</td>
+                        <td style="font-size: 0.9em;">${comp.address}</td>
+                    </tr>
+                `;
+            } else {
+                // Old format fallback
+                html += `
+                    <tr>
+                        <td colspan="5">${comp.domain}</td>
+                    </tr>
+                `;
+            }
         });
         
         html += `
