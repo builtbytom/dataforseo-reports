@@ -256,10 +256,10 @@ exports.handler = async (event, context) => {
             }
         }
         
-        // Detailed Report - add top ranking keywords for the domain
+        // Detailed Report - comprehensive keyword analysis
         if (reportType === 'detailed') {
             try {
-                // Get top keywords this domain ranks for
+                // 1. Get keywords this domain ranks for
                 const rankedKeywordsResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live', {
                     method: 'POST',
                     headers,
@@ -267,23 +267,71 @@ exports.handler = async (event, context) => {
                         target: domain,
                         location_code: 2840,
                         language_code: 'en',
-                        limit: 20,  // Top 20 keywords
+                        limit: 30,
                         order_by: ["keyword_data.keyword_info.search_volume,desc"]
                     }])
                 });
                 
                 const rankedData = await rankedKeywordsResponse.json();
+                console.log('Ranked keywords status:', rankedData.tasks?.[0]?.status_message);
                 
                 if (rankedData.tasks && rankedData.tasks[0] && rankedData.tasks[0].result) {
                     const items = rankedData.tasks[0].result[0]?.items || [];
-                    report.topKeywords = items.map(item => ({
-                        keyword: item.keyword_data?.keyword || '',
-                        position: item.ranked_serp_element?.rank_absolute || 0,
-                        volume: item.keyword_data?.keyword_info?.search_volume || 0,
-                        difficulty: item.keyword_data?.keyword_info?.competition || 0,
-                        cpc: item.keyword_data?.keyword_info?.cpc || 0,
-                        url: item.ranked_serp_element?.url || ''
-                    }));
+                    
+                    // Separate into different buckets
+                    report.topKeywords = items
+                        .filter(item => item.ranked_serp_element?.rank_absolute <= 10)
+                        .slice(0, 10)
+                        .map(item => ({
+                            keyword: item.keyword_data?.keyword || '',
+                            position: item.ranked_serp_element?.rank_absolute || 0,
+                            volume: item.keyword_data?.keyword_info?.search_volume || 0,
+                            url: item.ranked_serp_element?.url || ''
+                        }));
+                    
+                    report.opportunities = items
+                        .filter(item => item.ranked_serp_element?.rank_absolute > 10 && item.ranked_serp_element?.rank_absolute <= 30)
+                        .slice(0, 10)
+                        .map(item => ({
+                            keyword: item.keyword_data?.keyword || '',
+                            position: item.ranked_serp_element?.rank_absolute || 0,
+                            volume: item.keyword_data?.keyword_info?.search_volume || 0,
+                            potential_traffic: Math.round((item.keyword_data?.keyword_info?.search_volume || 0) * 0.3)
+                        }));
+                }
+                
+                // 2. If we have competitors, get keywords they rank for (keyword gaps)
+                if (report.competitors && report.competitors.length > 0 && report.competitors[0].domain.includes('.')) {
+                    const competitorDomain = report.competitors[0].domain;
+                    
+                    const competitorKeywordsResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify([{
+                            target: competitorDomain,
+                            location_code: 2840,
+                            language_code: 'en',
+                            limit: 20,
+                            order_by: ["keyword_data.keyword_info.search_volume,desc"]
+                        }])
+                    });
+                    
+                    const competitorData = await competitorKeywordsResponse.json();
+                    
+                    if (competitorData.tasks?.[0]?.result?.[0]?.items) {
+                        const competitorKeywords = competitorData.tasks[0].result[0].items;
+                        const ourKeywords = new Set(report.topKeywords.map(k => k.keyword.toLowerCase()));
+                        
+                        report.keywordGaps = competitorKeywords
+                            .filter(item => !ourKeywords.has(item.keyword_data?.keyword?.toLowerCase()))
+                            .slice(0, 10)
+                            .map(item => ({
+                                keyword: item.keyword_data?.keyword || '',
+                                competitor_position: item.ranked_serp_element?.rank_absolute || 0,
+                                volume: item.keyword_data?.keyword_info?.search_volume || 0,
+                                competitor: report.competitors[0].name
+                            }));
+                    }
                 }
                 
                 // If keywords were provided, also analyze them

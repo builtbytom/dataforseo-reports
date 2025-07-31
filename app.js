@@ -195,17 +195,16 @@ function displayReport(data) {
         `;
     }
     
-    // Top Keywords the domain ranks for
+    // Top Keywords the domain ranks for (Page 1)
     if (data.topKeywords && data.topKeywords.length > 0) {
         html += `
-            <h2 style="margin: 2rem 0 1rem;">Top Ranking Keywords</h2>
+            <h2 style="margin: 2rem 0 1rem;">🏆 Top Ranking Keywords (Page 1)</h2>
             <table>
                 <thead>
                     <tr>
                         <th>Keyword</th>
                         <th>Position</th>
                         <th>Monthly Searches</th>
-                        <th>CPC</th>
                         <th>URL</th>
                     </tr>
                 </thead>
@@ -213,14 +212,79 @@ function displayReport(data) {
         `;
         
         data.topKeywords.forEach(kw => {
-            const shortUrl = kw.url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 50);
+            const shortUrl = kw.url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 40);
             html += `
                 <tr>
                     <td>${kw.keyword}</td>
-                    <td style="text-align: center; color: ${kw.position <= 3 ? '#10b981' : kw.position <= 10 ? '#3b82f6' : '#64748b'}">${kw.position}</td>
+                    <td style="text-align: center; font-weight: bold; color: ${kw.position <= 3 ? '#10b981' : '#3b82f6'}">#${kw.position}</td>
                     <td>${formatNumber(kw.volume)}</td>
-                    <td>$${kw.cpc.toFixed(2)}</td>
-                    <td title="${kw.url}">${shortUrl}${shortUrl.length >= 50 ? '...' : ''}</td>
+                    <td title="${kw.url}" style="font-size: 0.85em; color: #64748b;">${shortUrl}${shortUrl.length >= 40 ? '...' : ''}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                </tbody>
+            </table>
+        `;
+    }
+    
+    // Keyword Opportunities (positions 11-30)
+    if (data.opportunities && data.opportunities.length > 0) {
+        html += `
+            <h2 style="margin: 2rem 0 1rem;">🎯 Keyword Opportunities (Quick Wins)</h2>
+            <p style="color: #64748b; margin-bottom: 1rem;">Keywords ranking on pages 2-3 that could easily move to page 1</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Keyword</th>
+                        <th>Current Position</th>
+                        <th>Monthly Searches</th>
+                        <th>Potential Traffic</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        data.opportunities.forEach(opp => {
+            html += `
+                <tr>
+                    <td>${opp.keyword}</td>
+                    <td style="text-align: center; color: #ef4444;">#${opp.position}</td>
+                    <td>${formatNumber(opp.volume)}</td>
+                    <td style="color: #10b981; font-weight: bold;">+${formatNumber(opp.potential_traffic)} visits/mo</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                </tbody>
+            </table>
+        `;
+    }
+    
+    // Keyword Gaps (competitor keywords we don't rank for)
+    if (data.keywordGaps && data.keywordGaps.length > 0) {
+        html += `
+            <h2 style="margin: 2rem 0 1rem;">💡 Keyword Gaps</h2>
+            <p style="color: #64748b; margin-bottom: 1rem;">Keywords ${data.keywordGaps[0].competitor} ranks for but you don't</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Keyword</th>
+                        <th>Competitor Position</th>
+                        <th>Monthly Searches</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        data.keywordGaps.forEach(gap => {
+            html += `
+                <tr>
+                    <td>${gap.keyword}</td>
+                    <td style="text-align: center; color: #3b82f6;">#${gap.competitor_position}</td>
+                    <td>${formatNumber(gap.volume)}</td>
                 </tr>
             `;
         });
