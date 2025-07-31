@@ -111,11 +111,24 @@ exports.handler = async (event, context) => {
                         const businessName = domainParts[0];
                         
                         // Search for similar businesses using SERP
+                        // Try to identify the business type from the domain name
+                        let searchQuery = '';
+                        if (businessName.includes('salon') || businessName.includes('spa')) {
+                            searchQuery = 'hair salons spa Connecticut';
+                        } else if (businessName.includes('restaurant') || businessName.includes('pizza')) {
+                            searchQuery = 'restaurants near me Connecticut';
+                        } else if (businessName.includes('law') || businessName.includes('legal')) {
+                            searchQuery = 'law firms Connecticut';
+                        } else {
+                            // Generic local business search
+                            searchQuery = `${businessName.replace(/[^a-z0-9]/gi, ' ')} near Connecticut`;
+                        }
+                        
                         const serpResponse = await fetch('https://api.dataforseo.com/v3/serp/google/organic/live/regular', {
                             method: 'POST',
                             headers,
                             body: JSON.stringify([{
-                                keyword: `${businessName.replace(/[^a-z0-9]/gi, ' ')} competitors Connecticut`,
+                                keyword: searchQuery,
                                 location_code: 2840,
                                 language_code: 'en',
                                 num: 20
@@ -123,7 +136,8 @@ exports.handler = async (event, context) => {
                         });
                         
                         const serpData = await serpResponse.json();
-                        console.log('SERP Competitor Search:', serpData.tasks?.[0]?.status_message);
+                        console.log('SERP Competitor Search Query:', searchQuery);
+                        console.log('SERP Competitor Search Status:', serpData.tasks?.[0]?.status_message);
                         
                         if (serpData.tasks && serpData.tasks[0] && serpData.tasks[0].result) {
                             const items = serpData.tasks[0].result[0]?.items || [];
@@ -134,7 +148,10 @@ exports.handler = async (event, context) => {
                                 .map(item => item.domain)
                                 .filter(d => d !== domain) // Exclude self
                                 .filter(d => !['facebook.com', 'instagram.com', 'yelp.com', 'youtube.com', 
-                                            'yellowpages.com', 'tiktok.com', 'pinterest.com'].includes(d))
+                                            'yellowpages.com', 'tiktok.com', 'pinterest.com', 'reddit.com',
+                                            'ctpost.com', 'patch.com', 'wikipedia.org', 'linkedin.com',
+                                            'twitter.com', 'nextdoor.com', 'groupon.com', 'google.com',
+                                            'apple.com', 'mapquest.com', 'tripadvisor.com'].includes(d))
                                 .slice(0, 5);
                             
                             // Create simplified competitor data
