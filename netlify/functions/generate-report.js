@@ -388,6 +388,84 @@ exports.handler = async (event, context) => {
                     }
                 }
                 
+                // Also check specific local keywords we know are important
+                // Try to extract city from domain or use common CT cities
+                let businessCity = 'North Haven'; // Default for now
+                if (report.competitors && report.competitors.length > 0) {
+                    // Try to get city from competitor addresses
+                    const firstAddress = report.competitors.find(c => c.address)?.address;
+                    if (firstAddress) {
+                        const parts = firstAddress.split(',');
+                        if (parts.length >= 2) {
+                            businessCity = parts[parts.length - 2].trim();
+                        }
+                    }
+                }
+                
+                const businessType = domain.includes('salon') ? 'hair salon' : 
+                                   domain.includes('barber') ? 'barber shop' : 
+                                   domain.includes('spa') ? 'spa' :
+                                   'business';
+                
+                const localKeywordsToCheck = [
+                    `${businessType} ${businessCity} Connecticut`,
+                    `${businessType} ${businessCity} CT`,
+                    `${businessType} near me`,
+                    `${businessType} ${businessCity}`,
+                    `best ${businessType} ${businessCity}`,
+                    `${businessType} near ${businessCity}`
+                ];
+                
+                if (localKeywordsToCheck.length > 0) {
+                    console.log('Checking specific local keywords:', localKeywordsToCheck);
+                    
+                    // Check where we rank for these specific keywords
+                    const serpResponse = await fetch('https://api.dataforseo.com/v3/serp/google/organic/live/regular', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify(localKeywordsToCheck.slice(0, 5).map(kw => ({
+                            keyword: kw,
+                            location_code: 2840,
+                            language_code: 'en',
+                            depth: 100
+                        })))
+                    });
+                    
+                    const serpData = await serpResponse.json();
+                    
+                    if (serpData.tasks) {
+                        const localRankings = [];
+                        
+                        serpData.tasks.forEach(task => {
+                            if (task.result && task.result[0]) {
+                                const keyword = task.data.keyword;
+                                const items = task.result[0].items || [];
+                                
+                                // Find our domain in results
+                                const ourPosition = items.findIndex(item => 
+                                    item.domain === domain || 
+                                    (item.url && item.url.includes(domain))
+                                ) + 1;
+                                
+                                if (ourPosition > 0) {
+                                    localRankings.push({
+                                        keyword: keyword,
+                                        position: ourPosition,
+                                        volume: 100, // Estimate for local keywords
+                                        url: items[ourPosition - 1].url
+                                    });
+                                }
+                            }
+                        });
+                        
+                        // Add these to top keywords if found
+                        if (localRankings.length > 0) {
+                            console.log('Found local keyword rankings:', localRankings);
+                            report.topKeywords = [...localRankings, ...report.topKeywords].slice(0, 15);
+                        }
+                    }
+                }
+                
                 // If keywords were provided, also analyze them
                 if (keywords && keywords.length > 0) {
                     const keywordsResponse = await fetch('https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live', {

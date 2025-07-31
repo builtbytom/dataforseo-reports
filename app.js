@@ -238,9 +238,9 @@ function displayReport(data) {
             `;
         } else {
             html += `
-                <div style="background: #fef3c7; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
-                    <h3 style="margin: 0 0 0.5rem 0;">📈 Limited Keyword Rankings Found</h3>
-                    <p style="margin: 0; color: #92400e;">This domain has few keywords ranking on page 1. Focus on the keyword opportunities below to improve visibility.</p>
+                <div style="background: #e0e7ff; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0;">
+                    <h3 style="margin: 0 0 0.5rem 0;">📊 Keyword Data Note</h3>
+                    <p style="margin: 0; color: #3730a3;">DataForSEO may not have complete keyword data for smaller local businesses. Your actual rankings may be better than shown here. For the most accurate data, consider checking specific keywords manually or using Google Search Console.</p>
                 </div>
             `;
         }
