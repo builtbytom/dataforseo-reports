@@ -9,8 +9,7 @@ document.getElementById('reportForm').addEventListener('submit', async (e) => {
     // Remove protocol if present
     domain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const reportType = document.querySelector('input[name="reportType"]:checked').value;
-    const keywordsText = document.getElementById('keywords').value;
-    const keywords = keywordsText ? keywordsText.split(',').map(k => k.trim()).filter(k => k) : [];
+    const keywords = [];
     
     // Show loading
     document.getElementById('loading').style.display = 'block';
@@ -18,7 +17,7 @@ document.getElementById('reportForm').addEventListener('submit', async (e) => {
     document.querySelector('button[type="submit"]').disabled = true;
     
     try {
-        console.log('Calling function with:', { domain, reportType, keywords });
+        console.log('Calling function with:', { domain, reportType });
         
         // Call our Netlify function
         const response = await fetch('/.netlify/functions/generate-report', {
@@ -28,8 +27,7 @@ document.getElementById('reportForm').addEventListener('submit', async (e) => {
             },
             body: JSON.stringify({
                 domain,
-                reportType,
-                keywords
+                reportType
             })
         });
         
