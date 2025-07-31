@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO Tool Admin</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .stat-card {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #6366f1;
+        }
+        .stat-label {
+            color: #64748b;
+            margin-top: 0.5rem;
+        }
+        .logs {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        #passwordPrompt {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #passwordPrompt .card {
+            padding: 2rem;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Simple password protection -->
+    <div id="passwordPrompt">
+        <div class="card">
+            <h2>Admin Access</h2>
+            <input type="password" id="adminPassword" placeholder="Enter admin password" style="width: 100%; margin: 1rem 0;">
+            <button onclick="checkPassword()" class="btn btn-primary">Access Admin</button>
+        </div>
+    </div>
+
+    <div class="container" id="adminContent" style="display: none;">
+        <header>
+            <h1>SEO Tool Admin Dashboard</h1>
+            <p>Usage tracking and analytics</p>
+        </header>
+
+        <main>
+            <!-- Quick Stats -->
+            <div class="card">
+                <h2>Usage Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalReports">0</div>
+                        <div class="stat-label">Total Reports</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="todayReports">0</div>
+                        <div class="stat-label">Today's Reports</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="uniqueUsers">0</div>
+                        <div class="stat-label">Unique IPs</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="apiCost">$0</div>
+                        <div class="stat-label">Est. API Cost</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="card">
+                <h2>Recent Activity</h2>
+                <div class="logs" id="activityLogs">
+                    <p style="color: #64748b;">Loading logs...</p>
+                </div>
+            </div>
+
+            <!-- Export Options -->
+            <div class="card">
+                <h2>Export Data</h2>
+                <button onclick="exportCSV()" class="btn btn-secondary">Download CSV</button>
+                <button onclick="viewNetlifyLogs()" class="btn btn-secondary">View Netlify Logs</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Simple password check (in production, use proper auth)
+        function checkPassword() {
+            const password = document.getElementById('adminPassword').value;
+            // Change this password!
+            if (password === 'admin123') {
+                document.getElementById('passwordPrompt').style.display = 'none';
+                document.getElementById('adminContent').style.display = 'block';
+                loadStats();
+            } else {
+                alert('Invalid password');
+            }
+        }
+
+        // Load stats from localStorage (simple demo)
+        function loadStats() {
+            // In a real app, this would fetch from an API
+            const logs = JSON.parse(localStorage.getItem('seoToolLogs') || '[]');
+            
+            // Calculate stats
+            const today = new Date().toDateString();
+            const todayLogs = logs.filter(log => new Date(log.timestamp).toDateString() === today);
+            const uniqueIPs = new Set(logs.map(log => log.ip)).size;
+            
+            // Estimate API cost (rough estimates)
+            const costs = {
+                quick: 0.001,
+                standard: 0.002
+            };
+            const totalCost = logs.reduce((sum, log) => sum + (costs[log.reportType] || 0), 0);
+            
+            // Update UI
+            document.getElementById('totalReports').textContent = logs.length;
+            document.getElementById('todayReports').textContent = todayLogs.length;
+            document.getElementById('uniqueUsers').textContent = uniqueIPs;
+            document.getElementById('apiCost').textContent = `$${totalCost.toFixed(2)}`;
+            
+            // Show recent logs
+            const logsHtml = logs.slice(-20).reverse().map(log => `
+                <div class="log-entry">
+                    <strong>${new Date(log.timestamp).toLocaleString()}</strong><br>
+                    Domain: ${log.domain} | Type: ${log.reportType} | IP: ${log.ip}
+                </div>
+            `).join('');
+            
+            document.getElementById('activityLogs').innerHTML = logsHtml || '<p>No logs yet</p>';
+        }
+
+        function exportCSV() {
+            const logs = JSON.parse(localStorage.getItem('seoToolLogs') || '[]');
+            const csv = 'Timestamp,Domain,Report Type,IP,User Agent\n' + 
+                logs.map(log => `"${log.timestamp}","${log.domain}","${log.reportType}","${log.ip}","${log.userAgent}"`).join('\n');
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'seo-tool-logs.csv';
+            a.click();
+        }
+
+        function viewNetlifyLogs() {
+            alert('View function logs at:\nhttps://app.netlify.com/sites/[your-site-name]/functions/generate-report');
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadStats, 30000);
+    </script>
+</body>
+</html>

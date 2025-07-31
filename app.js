@@ -44,6 +44,13 @@ document.getElementById('reportForm').addEventListener('submit', async (e) => {
             } catch {
                 error = { message: errorText };
             }
+            
+            // Handle rate limit specifically
+            if (response.status === 429) {
+                const retryMinutes = error.retryAfter ? Math.ceil(error.retryAfter / 60) : 60;
+                throw new Error(`Rate limit exceeded. You can generate up to 10 reports per hour. Please try again in ${retryMinutes} minutes.`);
+            }
+            
             throw new Error(error.message || 'Failed to generate report');
         }
         
@@ -51,6 +58,22 @@ document.getElementById('reportForm').addEventListener('submit', async (e) => {
         console.log('Response data:', data);
         currentReport = data;
         displayReport(data);
+        
+        // Track successful report generation
+        trackUsage('report_generated', domain, reportType);
+        
+        // Store in localStorage for simple admin view (remove in production)
+        const logs = JSON.parse(localStorage.getItem('seoToolLogs') || '[]');
+        logs.push({
+            timestamp: new Date().toISOString(),
+            domain: domain,
+            reportType: reportType,
+            ip: 'browser',
+            userAgent: navigator.userAgent
+        });
+        // Keep last 1000 logs
+        if (logs.length > 1000) logs.shift();
+        localStorage.setItem('seoToolLogs', JSON.stringify(logs));
         
     } catch (error) {
         console.error('Full error:', error);
@@ -460,4 +483,18 @@ function newReport() {
     document.getElementById('reportDisplay').style.display = 'none';
     document.getElementById('reportForm').reset();
     currentReport = null;
+}
+
+// Simple usage tracking
+async function trackUsage(action, domain, reportType) {
+    try {
+        await fetch('/.netlify/functions/track-usage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, domain, reportType })
+        });
+    } catch (e) {
+        // Silently fail - don't break the app if tracking fails
+        console.log('Tracking failed:', e);
+    }
 }

@@ -1,6 +1,34 @@
 // Netlify Function to generate SEO reports using DataForSEO API
 const fetch = require('node-fetch');
 
+// Simple in-memory rate limiting (resets when function cold starts)
+const rateLimits = new Map();
+const RATE_LIMIT = 10; // requests per hour
+const RATE_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
+
+function checkRateLimit(ip) {
+    const now = Date.now();
+    const userLimits = rateLimits.get(ip) || { count: 0, resetTime: now + RATE_WINDOW };
+    
+    // Reset if window expired
+    if (now > userLimits.resetTime) {
+        userLimits.count = 0;
+        userLimits.resetTime = now + RATE_WINDOW;
+    }
+    
+    // Check if over limit
+    if (userLimits.count >= RATE_LIMIT) {
+        const minutesLeft = Math.ceil((userLimits.resetTime - now) / 60000);
+        return { allowed: false, minutesLeft };
+    }
+    
+    // Increment and save
+    userLimits.count++;
+    rateLimits.set(ip, userLimits);
+    
+    return { allowed: true, remaining: RATE_LIMIT - userLimits.count };
+}
+
 exports.handler = async (event, context) => {
     // Only allow POST requests
     if (event.httpMethod !== 'POST') {
@@ -11,8 +39,33 @@ exports.handler = async (event, context) => {
     }
 
     try {
+        // Get client IP
+        const ip = event.headers['x-forwarded-for'] || event.headers['client-ip'] || 'unknown';
+        
+        // Check rate limit
+        const rateCheck = checkRateLimit(ip);
+        if (!rateCheck.allowed) {
+            return {
+                statusCode: 429,
+                body: JSON.stringify({ 
+                    message: `Rate limit exceeded. Try again in ${rateCheck.minutesLeft} minutes.`,
+                    retryAfter: rateCheck.minutesLeft * 60
+                })
+            };
+        }
+        
         // Parse request body
         const { domain, reportType, keywords } = JSON.parse(event.body);
+        
+        // Log request for tracking
+        console.log('Report Request:', {
+            timestamp: new Date().toISOString(),
+            ip: ip,
+            domain: domain,
+            reportType: reportType,
+            remaining: rateCheck.remaining,
+            userAgent: event.headers['user-agent']
+        });
         
         // Get credentials from environment variables
         const login = process.env.DATAFORSEO_LOGIN;
