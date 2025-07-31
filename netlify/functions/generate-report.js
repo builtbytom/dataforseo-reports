@@ -288,68 +288,10 @@ exports.handler = async (event, context) => {
                     };
                 }
                 
-                // 2. Get top referring domains if we have the detailed backlinks
-                if (report.detailedBacklinks && report.detailedBacklinks.domains > 0) {
-                    const referringDomainsResponse = await fetch('https://api.dataforseo.com/v3/backlinks/referring_domains/live', {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify([{
-                            target: domain,
-                            limit: 10,
-                            order_by: ["rank,desc"]
-                        }])
-                    });
-                    
-                    const referringData = await referringDomainsResponse.json();
-                    
-                    if (referringData.tasks?.[0]?.result?.[0]?.items) {
-                        report.topReferringDomains = referringData.tasks[0].result[0].items
-                            .slice(0, 10)
-                            .map(item => ({
-                                domain: item.domain || '',
-                                rank: item.rank || 0,
-                                backlinks: item.backlinks || 0,
-                                first_seen: item.first_seen || ''
-                            }));
-                    }
-                }
+                // Skip referring domains list to avoid timeout - just show the summary
                 
-                // 3. If we have competitors, get their backlink data for comparison
-                if (report.competitors && report.competitors.length > 0) {
-                    const competitorBacklinks = [];
-                    
-                    // Get backlink data for top 3 competitors
-                    for (let i = 0; i < Math.min(3, report.competitors.length); i++) {
-                        const comp = report.competitors[i];
-                        if (comp.domain && comp.domain.includes('.')) {
-                            const compBacklinksResponse = await fetch('https://api.dataforseo.com/v3/backlinks/summary/live', {
-                                method: 'POST',
-                                headers,
-                                body: JSON.stringify([{
-                                    target: comp.domain,
-                                    internal_list_limit: 0
-                                }])
-                            });
-                            
-                            const compData = await compBacklinksResponse.json();
-                            
-                            if (compData.tasks?.[0]?.result?.[0]) {
-                                const result = compData.tasks[0].result[0];
-                                competitorBacklinks.push({
-                                    name: comp.name,
-                                    domain: comp.domain,
-                                    backlinks: result.backlinks || 0,
-                                    domains: result.referring_domains || 0,
-                                    main_domain_rank: result.main_domain_rank || 0
-                                });
-                            }
-                        }
-                    }
-                    
-                    if (competitorBacklinks.length > 0) {
-                        report.competitorBacklinks = competitorBacklinks;
-                    }
-                }
+                // Skip competitor backlinks for now to avoid timeout
+                // This could be added as a separate endpoint or cached
             } catch (error) {
                 console.error('Error fetching backlink data:', error);
             }
