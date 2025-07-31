@@ -89,6 +89,7 @@ function displayReport(data) {
     
     // Debug - show raw data
     console.log('Displaying data:', data);
+    console.log('Overview data:', data.overview);
     
     // Show a message if no data
     if (!data.overview && !data.backlinks && !data.keywords) {
