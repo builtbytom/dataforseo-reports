@@ -89,10 +89,9 @@ function displayReport(data) {
     
     // Debug - show raw data
     console.log('Displaying data:', data);
-    console.log('Overview data:', data.overview);
-    console.log('Top Keywords:', data.topKeywords);
-    console.log('Opportunities:', data.opportunities);
-    console.log('Keyword Gaps:', data.keywordGaps);
+    if (data.detailedBacklinks) {
+        console.log('Backlink data:', data.detailedBacklinks);
+    }
     
     // Show a message if no data
     if (!data.overview && !data.backlinks && !data.keywords) {
@@ -198,13 +197,127 @@ function displayReport(data) {
         `;
     }
     
-    // Show a special section for detailed reports
-    if (data.hasOwnProperty('topKeywords')) {
-        html += `<h2 style="margin: 2rem 0 1rem;">📊 Detailed SEO Analysis</h2>`;
+    // Show detailed backlink analysis for detailed reports
+    if (data.detailedBacklinks) {
+        html += `<h2 style="margin: 2rem 0 1rem;">📊 Detailed Backlink Analysis</h2>`;
+        
+        // Backlink Overview
+        html += `
+            <h3 style="margin: 2rem 0 1rem;">🔗 Backlink Profile</h3>
+            <div class="metric-grid">
+                <div class="metric">
+                    <div class="metric-label">Total Backlinks</div>
+                    <div class="metric-value">${formatNumber(data.detailedBacklinks.total)}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Referring Domains</div>
+                    <div class="metric-value">${formatNumber(data.detailedBacklinks.domains)}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Domain Rank</div>
+                    <div class="metric-value">${data.detailedBacklinks.main_domain_rank || 'N/A'}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">DoFollow Links</div>
+                    <div class="metric-value">${formatNumber(data.detailedBacklinks.dofollow)}</div>
+                </div>
+            </div>
+            
+            <div class="metric-grid" style="margin-top: 1rem;">
+                <div class="metric">
+                    <div class="metric-label">NoFollow Links</div>
+                    <div class="metric-value">${formatNumber(data.detailedBacklinks.nofollow)}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Gov Links</div>
+                    <div class="metric-value">${formatNumber(data.detailedBacklinks.gov)}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Edu Links</div>
+                    <div class="metric-value">${formatNumber(data.detailedBacklinks.edu)}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Unique IPs</div>
+                    <div class="metric-value">${formatNumber(data.detailedBacklinks.referring_ips)}</div>
+                </div>
+            </div>
+        `;
+        
+        // Competitor Backlink Comparison
+        if (data.competitorBacklinks && data.competitorBacklinks.length > 0) {
+            html += `
+                <h3 style="margin: 2rem 0 1rem;">📈 Backlink Comparison</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Domain</th>
+                            <th>Total Backlinks</th>
+                            <th>Referring Domains</th>
+                            <th>Domain Rank</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background: #e0e7ff;">
+                            <td><strong>Your Site (${data.domain})</strong></td>
+                            <td><strong>${formatNumber(data.detailedBacklinks.total)}</strong></td>
+                            <td><strong>${formatNumber(data.detailedBacklinks.domains)}</strong></td>
+                            <td><strong>${data.detailedBacklinks.main_domain_rank || 'N/A'}</strong></td>
+                        </tr>
+            `;
+            
+            data.competitorBacklinks.forEach(comp => {
+                html += `
+                    <tr>
+                        <td>${comp.name}</td>
+                        <td>${formatNumber(comp.backlinks)}</td>
+                        <td>${formatNumber(comp.domains)}</td>
+                        <td>${comp.main_domain_rank || 'N/A'}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        // Top Referring Domains
+        if (data.topReferringDomains && data.topReferringDomains.length > 0) {
+            html += `
+                <h3 style="margin: 2rem 0 1rem;">🏆 Top Referring Domains</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Domain</th>
+                            <th>Domain Rank</th>
+                            <th>Backlinks</th>
+                            <th>First Seen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.topReferringDomains.forEach(ref => {
+                html += `
+                    <tr>
+                        <td>${ref.domain}</td>
+                        <td>${ref.rank || 'N/A'}</td>
+                        <td>${formatNumber(ref.backlinks)}</td>
+                        <td>${ref.first_seen ? new Date(ref.first_seen).toLocaleDateString() : 'N/A'}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+        }
     }
     
-    // Top Keywords the domain ranks for (Page 1)
-    if (data.hasOwnProperty('topKeywords')) {
+    // Remove old keyword sections
+    if (false && data.hasOwnProperty('topKeywords')) {
         if (data.topKeywords.length > 0) {
             html += `
                 <h3 style="margin: 2rem 0 1rem;">🏆 Top Ranking Keywords (Page 1)</h3>

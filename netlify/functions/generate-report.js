@@ -256,241 +256,102 @@ exports.handler = async (event, context) => {
             }
         }
         
-        // Detailed Report - comprehensive keyword analysis
+        // Detailed Report - add comprehensive backlink analysis
         if (reportType === 'detailed') {
             try {
-                // 1. Get keywords this domain ranks for
-                // Get keywords with filters for local/relevant terms
-                const rankedKeywordsResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live', {
+                // 1. Get detailed backlink metrics
+                const backlinksResponse = await fetch('https://api.dataforseo.com/v3/backlinks/summary/live', {
                     method: 'POST',
                     headers,
                     body: JSON.stringify([{
                         target: domain,
-                        location_code: 2840,
-                        language_code: 'en',
-                        limit: 100,  // Get more to filter through
-                        filters: [
-                            ["keyword_data.keyword_info.search_volume", ">=", 10],  // Min 10 searches
-                            ["ranked_serp_element.rank_absolute", "<=", 50]  // Top 50 positions
-                        ]
+                        internal_list_limit: 0,  // We don't need internal links
+                        backlinks_status_type: "live"
                     }])
                 });
                 
-                const rankedData = await rankedKeywordsResponse.json();
-                console.log('Ranked keywords API response:', JSON.stringify(rankedData, null, 2));
+                const backlinksData = await backlinksResponse.json();
+                console.log('Backlinks API response:', backlinksData.tasks?.[0]?.status_message);
                 
-                if (rankedData.tasks && rankedData.tasks[0]) {
-                    const task = rankedData.tasks[0];
-                    
-                    if (task.status_code !== 20000) {
-                        console.error('Ranked keywords API error:', task.status_message);
-                        report.topKeywords = [];
-                        report.opportunities = [];
-                    } else if (task.result && task.result[0]) {
-                        const items = task.result[0].items || [];
-                        console.log(`Found ${items.length} total keywords for ${domain}`);
-                        
-                        // Prioritize local keywords
-                        const businessCity = report.competitors?.[0]?.address?.split(',')[1]?.trim() || '';
-                        const localTerms = ['near me', 'connecticut', 'ct', 'north haven', businessCity.toLowerCase()];
-                        
-                        // Sort items to prioritize local keywords
-                        items.sort((a, b) => {
-                            const aKeyword = (a.keyword_data?.keyword || '').toLowerCase();
-                            const bKeyword = (b.keyword_data?.keyword || '').toLowerCase();
-                            
-                            // Check if keywords contain local terms
-                            const aIsLocal = localTerms.some(term => aKeyword.includes(term));
-                            const bIsLocal = localTerms.some(term => bKeyword.includes(term));
-                            
-                            if (aIsLocal && !bIsLocal) return -1;
-                            if (!aIsLocal && bIsLocal) return 1;
-                            
-                            // Then sort by position
-                            return (a.ranked_serp_element?.rank_absolute || 100) - (b.ranked_serp_element?.rank_absolute || 100);
-                        });
-                        
-                        // Separate into different buckets
-                        report.topKeywords = items
-                            .filter(item => item.ranked_serp_element?.rank_absolute <= 10)
-                            .slice(0, 15)  // Show more keywords
-                            .map(item => ({
-                                keyword: item.keyword_data?.keyword || '',
-                                position: item.ranked_serp_element?.rank_absolute || 0,
-                                volume: item.keyword_data?.keyword_info?.search_volume || 0,
-                                url: item.ranked_serp_element?.url || ''
-                            }));
-                        
-                        report.opportunities = items
-                            .filter(item => item.ranked_serp_element?.rank_absolute > 10 && item.ranked_serp_element?.rank_absolute <= 30)
-                            .slice(0, 10)
-                            .map(item => ({
-                                keyword: item.keyword_data?.keyword || '',
-                                position: item.ranked_serp_element?.rank_absolute || 0,
-                                volume: item.keyword_data?.keyword_info?.search_volume || 0,
-                                potential_traffic: Math.round((item.keyword_data?.keyword_info?.search_volume || 0) * 0.3)
-                            }));
-                        
-                        console.log(`Bucketed into ${report.topKeywords.length} top keywords and ${report.opportunities.length} opportunities`);
-                    }
-                } else {
-                    console.log('No ranked keywords data in response');
-                    report.topKeywords = [];
-                    report.opportunities = [];
+                if (backlinksData.tasks?.[0]?.result?.[0]) {
+                    const result = backlinksData.tasks[0].result[0];
+                    report.detailedBacklinks = {
+                        total: result.backlinks || 0,
+                        domains: result.referring_domains || 0,
+                        main_domain_rank: result.main_domain_rank || 0,
+                        dofollow: result.dofollow || 0,
+                        nofollow: result.nofollow || 0,
+                        gov: result.gov || 0,
+                        edu: result.edu || 0,
+                        referring_ips: result.referring_ips || 0,
+                        referring_subnets: result.referring_subnets || 0
+                    };
                 }
                 
-                // 2. If we have competitors, get keywords they rank for (keyword gaps)
-                if (report.competitors && report.competitors.length > 0 && report.competitors[0].domain.includes('.')) {
-                    const competitorDomain = report.competitors[0].domain;
-                    
-                    const competitorKeywordsResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live', {
+                // 2. Get top referring domains if we have the detailed backlinks
+                if (report.detailedBacklinks && report.detailedBacklinks.domains > 0) {
+                    const referringDomainsResponse = await fetch('https://api.dataforseo.com/v3/backlinks/referring_domains/live', {
                         method: 'POST',
                         headers,
                         body: JSON.stringify([{
-                            target: competitorDomain,
-                            location_code: 2840,
-                            language_code: 'en',
-                            limit: 50,
-                            filters: [
-                                ["keyword_data.keyword_info.search_volume", ">=", 50],
-                                ["ranked_serp_element.rank_absolute", "<=", 10]
-                            ]
+                            target: domain,
+                            limit: 10,
+                            order_by: ["rank,desc"]
                         }])
                     });
                     
-                    const competitorData = await competitorKeywordsResponse.json();
+                    const referringData = await referringDomainsResponse.json();
                     
-                    if (competitorData.tasks?.[0]?.result?.[0]?.items) {
-                        const competitorKeywords = competitorData.tasks[0].result[0].items;
-                        const ourKeywords = new Set(report.topKeywords.map(k => k.keyword.toLowerCase()));
-                        
-                        // Filter for relevant keywords (not barber keywords for a salon)
-                        const businessType = domain.includes('salon') ? 'salon' : 'business';
-                        const irrelevantTerms = businessType === 'salon' ? 
-                            ['barber', 'barbershop', 'supercut'] : [];
-                        
-                        report.keywordGaps = competitorKeywords
-                            .filter(item => {
-                                const keyword = item.keyword_data?.keyword?.toLowerCase() || '';
-                                // Skip irrelevant keywords
-                                if (irrelevantTerms.some(term => keyword.includes(term))) return false;
-                                // Only include if we don't rank for it and competitor ranks well
-                                return !ourKeywords.has(keyword) && 
-                                       item.ranked_serp_element?.rank_absolute <= 20;
-                            })
+                    if (referringData.tasks?.[0]?.result?.[0]?.items) {
+                        report.topReferringDomains = referringData.tasks[0].result[0].items
                             .slice(0, 10)
                             .map(item => ({
-                                keyword: item.keyword_data?.keyword || '',
-                                competitor_position: item.ranked_serp_element?.rank_absolute || 'N/A',
-                                volume: item.keyword_data?.keyword_info?.search_volume || 0,
-                                competitor: report.competitors[0].name
+                                domain: item.domain || '',
+                                rank: item.rank || 0,
+                                backlinks: item.backlinks || 0,
+                                first_seen: item.first_seen || ''
                             }));
                     }
                 }
                 
-                // Also check specific local keywords we know are important
-                // Try to extract city from domain or use common CT cities
-                let businessCity = 'North Haven'; // Default for now
+                // 3. If we have competitors, get their backlink data for comparison
                 if (report.competitors && report.competitors.length > 0) {
-                    // Try to get city from competitor addresses
-                    const firstAddress = report.competitors.find(c => c.address)?.address;
-                    if (firstAddress) {
-                        const parts = firstAddress.split(',');
-                        if (parts.length >= 2) {
-                            businessCity = parts[parts.length - 2].trim();
-                        }
-                    }
-                }
-                
-                const businessType = domain.includes('salon') ? 'hair salon' : 
-                                   domain.includes('barber') ? 'barber shop' : 
-                                   domain.includes('spa') ? 'spa' :
-                                   'business';
-                
-                const localKeywordsToCheck = [
-                    `${businessType} ${businessCity} Connecticut`,
-                    `${businessType} ${businessCity} CT`,
-                    `${businessType} near me`,
-                    `${businessType} ${businessCity}`,
-                    `best ${businessType} ${businessCity}`,
-                    `${businessType} near ${businessCity}`
-                ];
-                
-                if (localKeywordsToCheck.length > 0) {
-                    console.log('Checking specific local keywords:', localKeywordsToCheck);
+                    const competitorBacklinks = [];
                     
-                    // Check where we rank for these specific keywords
-                    const serpResponse = await fetch('https://api.dataforseo.com/v3/serp/google/organic/live/regular', {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify(localKeywordsToCheck.slice(0, 5).map(kw => ({
-                            keyword: kw,
-                            location_code: 2840,
-                            language_code: 'en',
-                            depth: 100
-                        })))
-                    });
-                    
-                    const serpData = await serpResponse.json();
-                    
-                    if (serpData.tasks) {
-                        const localRankings = [];
-                        
-                        serpData.tasks.forEach(task => {
-                            if (task.result && task.result[0]) {
-                                const keyword = task.data.keyword;
-                                const items = task.result[0].items || [];
-                                
-                                // Find our domain in results
-                                const ourPosition = items.findIndex(item => 
-                                    item.domain === domain || 
-                                    (item.url && item.url.includes(domain))
-                                ) + 1;
-                                
-                                if (ourPosition > 0) {
-                                    localRankings.push({
-                                        keyword: keyword,
-                                        position: ourPosition,
-                                        volume: 100, // Estimate for local keywords
-                                        url: items[ourPosition - 1].url
-                                    });
-                                }
+                    // Get backlink data for top 3 competitors
+                    for (let i = 0; i < Math.min(3, report.competitors.length); i++) {
+                        const comp = report.competitors[i];
+                        if (comp.domain && comp.domain.includes('.')) {
+                            const compBacklinksResponse = await fetch('https://api.dataforseo.com/v3/backlinks/summary/live', {
+                                method: 'POST',
+                                headers,
+                                body: JSON.stringify([{
+                                    target: comp.domain,
+                                    internal_list_limit: 0
+                                }])
+                            });
+                            
+                            const compData = await compBacklinksResponse.json();
+                            
+                            if (compData.tasks?.[0]?.result?.[0]) {
+                                const result = compData.tasks[0].result[0];
+                                competitorBacklinks.push({
+                                    name: comp.name,
+                                    domain: comp.domain,
+                                    backlinks: result.backlinks || 0,
+                                    domains: result.referring_domains || 0,
+                                    main_domain_rank: result.main_domain_rank || 0
+                                });
                             }
-                        });
-                        
-                        // Add these to top keywords if found
-                        if (localRankings.length > 0) {
-                            console.log('Found local keyword rankings:', localRankings);
-                            report.topKeywords = [...localRankings, ...report.topKeywords].slice(0, 15);
                         }
                     }
-                }
-                
-                // If keywords were provided, also analyze them
-                if (keywords && keywords.length > 0) {
-                    const keywordsResponse = await fetch('https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live', {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify([{
-                            keywords: keywords.slice(0, 10), // Limit to 10 keywords to save costs
-                            location_code: 2840,
-                            language_code: 'en'
-                        }])
-                    });
                     
-                    const keywordsData = await keywordsResponse.json();
-                    
-                    if (keywordsData.tasks && keywordsData.tasks[0] && keywordsData.tasks[0].result) {
-                        report.analyzedKeywords = keywordsData.tasks[0].result.map(item => ({
-                            keyword: item.keyword || '',
-                            volume: item.search_volume || 0,
-                            competition: item.competition || '',
-                            cpc: item.cpc || 0
-                        }));
+                    if (competitorBacklinks.length > 0) {
+                        report.competitorBacklinks = competitorBacklinks;
                     }
                 }
             } catch (error) {
-                console.error('Error fetching keyword data:', error);
+                console.error('Error fetching backlink data:', error);
             }
         }
         
