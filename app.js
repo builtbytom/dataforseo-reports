@@ -90,6 +90,9 @@ function displayReport(data) {
     // Debug - show raw data
     console.log('Displaying data:', data);
     console.log('Overview data:', data.overview);
+    console.log('Top Keywords:', data.topKeywords);
+    console.log('Opportunities:', data.opportunities);
+    console.log('Keyword Gaps:', data.keywordGaps);
     
     // Show a message if no data
     if (!data.overview && !data.backlinks && !data.keywords) {

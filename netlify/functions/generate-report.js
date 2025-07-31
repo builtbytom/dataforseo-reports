@@ -273,31 +273,46 @@ exports.handler = async (event, context) => {
                 });
                 
                 const rankedData = await rankedKeywordsResponse.json();
-                console.log('Ranked keywords status:', rankedData.tasks?.[0]?.status_message);
+                console.log('Ranked keywords API response:', JSON.stringify(rankedData, null, 2));
                 
-                if (rankedData.tasks && rankedData.tasks[0] && rankedData.tasks[0].result) {
-                    const items = rankedData.tasks[0].result[0]?.items || [];
+                if (rankedData.tasks && rankedData.tasks[0]) {
+                    const task = rankedData.tasks[0];
                     
-                    // Separate into different buckets
-                    report.topKeywords = items
-                        .filter(item => item.ranked_serp_element?.rank_absolute <= 10)
-                        .slice(0, 10)
-                        .map(item => ({
-                            keyword: item.keyword_data?.keyword || '',
-                            position: item.ranked_serp_element?.rank_absolute || 0,
-                            volume: item.keyword_data?.keyword_info?.search_volume || 0,
-                            url: item.ranked_serp_element?.url || ''
-                        }));
-                    
-                    report.opportunities = items
-                        .filter(item => item.ranked_serp_element?.rank_absolute > 10 && item.ranked_serp_element?.rank_absolute <= 30)
-                        .slice(0, 10)
-                        .map(item => ({
-                            keyword: item.keyword_data?.keyword || '',
-                            position: item.ranked_serp_element?.rank_absolute || 0,
-                            volume: item.keyword_data?.keyword_info?.search_volume || 0,
-                            potential_traffic: Math.round((item.keyword_data?.keyword_info?.search_volume || 0) * 0.3)
-                        }));
+                    if (task.status_code !== 20000) {
+                        console.error('Ranked keywords API error:', task.status_message);
+                        report.topKeywords = [];
+                        report.opportunities = [];
+                    } else if (task.result && task.result[0]) {
+                        const items = task.result[0].items || [];
+                        console.log(`Found ${items.length} total keywords for ${domain}`);
+                        
+                        // Separate into different buckets
+                        report.topKeywords = items
+                            .filter(item => item.ranked_serp_element?.rank_absolute <= 10)
+                            .slice(0, 10)
+                            .map(item => ({
+                                keyword: item.keyword_data?.keyword || '',
+                                position: item.ranked_serp_element?.rank_absolute || 0,
+                                volume: item.keyword_data?.keyword_info?.search_volume || 0,
+                                url: item.ranked_serp_element?.url || ''
+                            }));
+                        
+                        report.opportunities = items
+                            .filter(item => item.ranked_serp_element?.rank_absolute > 10 && item.ranked_serp_element?.rank_absolute <= 30)
+                            .slice(0, 10)
+                            .map(item => ({
+                                keyword: item.keyword_data?.keyword || '',
+                                position: item.ranked_serp_element?.rank_absolute || 0,
+                                volume: item.keyword_data?.keyword_info?.search_volume || 0,
+                                potential_traffic: Math.round((item.keyword_data?.keyword_info?.search_volume || 0) * 0.3)
+                            }));
+                        
+                        console.log(`Bucketed into ${report.topKeywords.length} top keywords and ${report.opportunities.length} opportunities`);
+                    }
+                } else {
+                    console.log('No ranked keywords data in response');
+                    report.topKeywords = [];
+                    report.opportunities = [];
                 }
                 
                 // 2. If we have competitors, get keywords they rank for (keyword gaps)
