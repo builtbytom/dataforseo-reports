@@ -46,43 +46,61 @@ exports.handler = async (event, context) => {
         // Log the domain we're checking
         console.log('Checking domain:', domain);
         
-        // First, check account status
+        // First, check account balance and status
         try {
-            const accountResponse = await fetch('https://api.dataforseo.com/v3/merchant/api/live', {
+            const balanceResponse = await fetch('https://api.dataforseo.com/v3/appendix/user_data', {
                 method: 'GET',
                 headers
             });
-            const accountData = await accountResponse.json();
-            console.log('Account status:', JSON.stringify(accountData, null, 2));
+            const balanceData = await balanceResponse.json();
+            console.log('Account balance check:', {
+                status: balanceData.status_code,
+                balance: balanceData.tasks?.[0]?.data?.money?.balance,
+                message: balanceData.status_message
+            });
         } catch (e) {
-            console.log('Account check error:', e.message);
+            console.log('Balance check error:', e.message);
         }
         
         // Get REAL domain metrics using DataForSEO Labs
         if (reportType === 'quick' || reportType === 'standard' || reportType === 'detailed') {
             try {
-                // Use Domain Ranking Distribution endpoint for traffic estimates
-                const rankingResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/domain_rank_overview/live', {
+                // Try Historical Rank Overview for traffic data
+                const historyResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/historical_rank_overview/live', {
                     method: 'POST',
                     headers,
                     body: JSON.stringify([{
                         target: domain,
                         location_code: 2840,
-                        language_code: 'en'
+                        language_code: 'en',
+                        date_from: '2025-01-01'
                     }])
                 });
                 
-                const rankingData = await rankingResponse.json();
-                console.log('Domain Ranking Response:', JSON.stringify(rankingData, null, 2));
+                const historyData = await historyResponse.json();
+                console.log('Historical API Response:', JSON.stringify(historyData, null, 2));
                 
-                if (rankingData.tasks && rankingData.tasks[0] && rankingData.tasks[0].result && rankingData.tasks[0].result[0]) {
-                    const result = rankingData.tasks[0].result[0];
-                    report.overview = {
-                        organic_traffic: Math.round(result.metrics?.organic?.etv || 0),
-                        organic_keywords: result.metrics?.organic?.count || 0,
-                        traffic_value: Math.round(result.metrics?.organic?.estimated_paid_traffic_cost || 0)
-                    };
-                    console.log('Domain metrics from ranking:', report.overview);
+                if (historyData.tasks && historyData.tasks[0]) {
+                    const task = historyData.tasks[0];
+                    
+                    // Check for API errors
+                    if (task.status_code !== 20000) {
+                        console.error('API Error:', task.status_message);
+                        throw new Error(task.status_message || 'API request failed');
+                    }
+                    
+                    if (task.result && task.result[0] && task.result[0].items && task.result[0].items.length > 0) {
+                        // Get the most recent data point
+                        const latestData = task.result[0].items[task.result[0].items.length - 1];
+                        report.overview = {
+                            organic_traffic: Math.round(latestData.metrics?.organic?.etv || 0),
+                            organic_keywords: latestData.metrics?.organic?.count || 0,
+                            traffic_value: Math.round(latestData.metrics?.organic?.estimated_paid_traffic_cost || 0)
+                        };
+                        console.log('Domain metrics from history:', report.overview);
+                    } else {
+                        console.log('No historical data found for domain');
+                    }
                 }
                 
                 // Also get competitor data for standard/detailed reports
