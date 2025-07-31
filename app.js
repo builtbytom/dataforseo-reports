@@ -176,26 +176,6 @@ function displayReport(data) {
         `;
     }
     
-    // Backlinks
-    if (data.backlinks) {
-        html += `
-            <h2 style="margin: 2rem 0 1rem;">Backlink Profile</h2>
-            <div class="metric-grid">
-                <div class="metric">
-                    <div class="metric-label">Total Backlinks</div>
-                    <div class="metric-value">${formatNumber(data.backlinks.total)}</div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">Referring Domains</div>
-                    <div class="metric-value">${formatNumber(data.backlinks.domains)}</div>
-                </div>
-                <div class="metric">
-                    <div class="metric-label">DoFollow Links</div>
-                    <div class="metric-value">${formatNumber(data.backlinks.dofollow)}</div>
-                </div>
-            </div>
-        `;
-    }
     
     // Show detailed backlink analysis for detailed reports
     if (data.detailedBacklinks) {

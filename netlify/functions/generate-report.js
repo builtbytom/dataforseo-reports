@@ -63,7 +63,7 @@ exports.handler = async (event, context) => {
         }
         
         // Get REAL domain metrics using DataForSEO Labs
-        if (reportType === 'quick' || reportType === 'standard' || reportType === 'detailed') {
+        if (reportType === 'quick' || reportType === 'standard') {
             try {
                 // Try Historical Rank Overview for traffic data
                 const historyResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/historical_rank_overview/live', {
@@ -104,7 +104,7 @@ exports.handler = async (event, context) => {
                 }
                 
                 // Get competitor data using Google Maps for local businesses
-                if (reportType === 'standard' || reportType === 'detailed') {
+                if (reportType === 'standard') {
                     try {
                         // For local businesses, use Google Maps to find actual competitors
                         const businessName = domain.split('.')[0].replace(/[^a-z0-9]/gi, ' ');
@@ -233,105 +233,7 @@ exports.handler = async (event, context) => {
             }
         }
         
-        // Standard Report - add backlinks
-        if (reportType === 'standard' || reportType === 'detailed') {
-            const backlinksResponse = await fetch('https://api.dataforseo.com/v3/backlinks/summary/live', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify([{
-                    target: domain,
-                    internal_list_limit: 10
-                }])
-            });
-            
-            const backlinksData = await backlinksResponse.json();
-            
-            if (backlinksData.tasks && backlinksData.tasks[0] && backlinksData.tasks[0].result) {
-                const result = backlinksData.tasks[0].result[0];
-                report.backlinks = {
-                    total: result.total_backlinks || 0,
-                    domains: result.referring_domains || 0,
-                    dofollow: result.dofollow || 0
-                };
-            }
-        }
         
-        // Detailed Report - add the same backlink data from standard report
-        if (reportType === 'detailed') {
-            console.log('Starting detailed report analysis...');
-            
-            // Copy backlinks data if we already have it from standard report
-            if (report.backlinks) {
-                report.detailedBacklinks = {
-                    total: report.backlinks.total || 0,
-                    domains: report.backlinks.domains || 0,
-                    main_domain_rank: 'N/A',  // Not available in simple endpoint
-                    dofollow: report.backlinks.dofollow || 0,
-                    nofollow: Math.max(0, (report.backlinks.total || 0) - (report.backlinks.dofollow || 0)),
-                    gov: 0,  // Not available in simple endpoint
-                    edu: 0,  // Not available in simple endpoint
-                    referring_ips: 0,  // Not available in simple endpoint
-                    referring_subnets: 0  // Not available in simple endpoint
-                };
-            } else {
-                // If not already fetched, get it now
-                try {
-                    const backlinksResponse = await fetch('https://api.dataforseo.com/v3/backlinks/summary/live', {
-                        method: 'POST',
-                        headers,
-                        body: JSON.stringify([{
-                            target: domain,
-                            internal_list_limit: 10
-                        }])
-                    });
-                    
-                    const backlinksData = await backlinksResponse.json();
-                    console.log('Backlinks API response:', backlinksData.tasks?.[0]?.status_message);
-                    
-                    if (backlinksData.tasks && backlinksData.tasks[0] && backlinksData.tasks[0].result) {
-                        const result = backlinksData.tasks[0].result[0];
-                        report.detailedBacklinks = {
-                            total: result.total_backlinks || 0,
-                            domains: result.referring_domains || 0,
-                            main_domain_rank: result.rank || 'N/A',
-                            dofollow: result.dofollow || 0,
-                            nofollow: result.nofollow || 0,
-                            gov: result.referring_domains_types?.gov || 0,
-                            edu: result.referring_domains_types?.edu || 0,
-                            referring_ips: result.referring_ips || 0,
-                            referring_subnets: result.referring_subnets || 0
-                        };
-                    } else {
-                        // Fallback to basic data
-                        report.detailedBacklinks = {
-                            total: 0,
-                            domains: 0,
-                            main_domain_rank: 'N/A',
-                            dofollow: 0,
-                            nofollow: 0,
-                            gov: 0,
-                            edu: 0,
-                            referring_ips: 0,
-                            referring_subnets: 0
-                        };
-                    }
-                } catch (error) {
-                    console.error('Error fetching backlink data:', error);
-                    // Provide empty data on error
-                    report.detailedBacklinks = {
-                        total: 0,
-                        domains: 0,
-                        main_domain_rank: 'N/A',
-                        dofollow: 0,
-                        nofollow: 0,
-                        gov: 0,
-                        edu: 0,
-                        referring_ips: 0,
-                        referring_subnets: 0
-                    };
-                }
-            }
-        }
         
         return {
             statusCode: 200,
