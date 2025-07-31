@@ -58,38 +58,69 @@ exports.handler = async (event, context) => {
             console.log('Account check error:', e.message);
         }
         
-        // Quick Overview - try SERP API instead
+        // Get REAL domain metrics using DataForSEO Labs
         if (reportType === 'quick' || reportType === 'standard' || reportType === 'detailed') {
-            // Try a simple search for the domain
-            const serpResponse = await fetch('https://api.dataforseo.com/v3/serp/google/organic/live/regular', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify([{
-                    keyword: `site:${domain}`,
-                    location_code: 2840,
-                    language_code: 'en',
-                    device: 'desktop',
-                    os: 'windows'
-                }])
-            });
-            
-            const serpData = await serpResponse.json();
-            console.log('SERP API Response:', JSON.stringify(serpData, null, 2));
-            
-            if (serpData.tasks && serpData.tasks[0]) {
-                if (serpData.tasks[0].status_code !== 20000) {
-                    console.log('API Error:', serpData.tasks[0].status_message);
-                } else if (serpData.tasks[0].result && serpData.tasks[0].result[0]) {
-                    const result = serpData.tasks[0].result[0];
-                    // For now, just count the results as a basic metric
-                    const itemCount = result.items?.length || 0;
-                    report.overview = {
-                        organic_traffic: itemCount * 100, // Rough estimate
-                        organic_keywords: itemCount,
-                        traffic_value: itemCount * 50
-                    };
-                    console.log('SERP metrics:', report.overview);
+            try {
+                // Use Domain Metrics endpoint for real data
+                const metricsResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/domain_metrics_by_categories/live', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify([{
+                        target: domain,
+                        location_code: 2840,
+                        language_code: 'en',
+                        include_subdomains: false
+                    }])
+                });
+                
+                const metricsData = await metricsResponse.json();
+                console.log('Domain Metrics Response:', JSON.stringify(metricsData, null, 2));
+                
+                if (metricsData.tasks && metricsData.tasks[0] && metricsData.tasks[0].result) {
+                    const metrics = metricsData.tasks[0].result[0]?.metrics;
+                    if (metrics) {
+                        report.overview = {
+                            organic_traffic: metrics.organic?.etv || 0,
+                            organic_keywords: metrics.organic?.count || 0,
+                            traffic_value: metrics.organic?.estimated_paid_traffic_cost || 0,
+                            visibility_trend: metrics.organic?.traffic_monthly || []
+                        };
+                        console.log('Real domain metrics:', report.overview);
+                    }
                 }
+                
+                // Also get competitor data for standard/detailed reports
+                if (reportType === 'standard' || reportType === 'detailed') {
+                    const competitorsResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/competitors_domain/live', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify([{
+                            target: domain,
+                            location_code: 2840,
+                            language_code: 'en',
+                            limit: 5,
+                            include_subdomains: false
+                        }])
+                    });
+                    
+                    const competitorsData = await competitorsResponse.json();
+                    if (competitorsData.tasks && competitorsData.tasks[0] && competitorsData.tasks[0].result) {
+                        report.competitors = competitorsData.tasks[0].result[0]?.items?.slice(0, 5).map(comp => ({
+                            domain: comp.domain,
+                            overlap_keywords: comp.metrics?.organic?.common || 0,
+                            their_traffic: comp.metrics?.organic?.etv || 0,
+                            their_keywords: comp.metrics?.organic?.count || 0
+                        })) || [];
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching domain metrics:', error);
+                // Fall back to basic data if Labs API fails
+                report.overview = {
+                    organic_traffic: 0,
+                    organic_keywords: 0,
+                    traffic_value: 0
+                };
             }
         }
         
@@ -116,27 +147,61 @@ exports.handler = async (event, context) => {
             }
         }
         
-        // Detailed Report - add keywords
-        if (reportType === 'detailed' && keywords && keywords.length > 0) {
-            const keywordsResponse = await fetch('https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify([{
-                    keywords: keywords.slice(0, 10), // Limit to 10 keywords to save costs
-                    location_code: 2840,
-                    language_code: 'en'
-                }])
-            });
-            
-            const keywordsData = await keywordsResponse.json();
-            
-            if (keywordsData.tasks && keywordsData.tasks[0] && keywordsData.tasks[0].result) {
-                report.keywords = keywordsData.tasks[0].result.map(item => ({
-                    keyword: item.keyword || '',
-                    volume: item.search_volume || 0,
-                    competition: item.competition || '',
-                    cpc: item.cpc || 0
-                }));
+        // Detailed Report - add top ranking keywords for the domain
+        if (reportType === 'detailed') {
+            try {
+                // Get top keywords this domain ranks for
+                const rankedKeywordsResponse = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/ranked_keywords/live', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify([{
+                        target: domain,
+                        location_code: 2840,
+                        language_code: 'en',
+                        limit: 20,  // Top 20 keywords
+                        order_by: ["keyword_data.keyword_info.search_volume,desc"]
+                    }])
+                });
+                
+                const rankedData = await rankedKeywordsResponse.json();
+                
+                if (rankedData.tasks && rankedData.tasks[0] && rankedData.tasks[0].result) {
+                    const items = rankedData.tasks[0].result[0]?.items || [];
+                    report.topKeywords = items.map(item => ({
+                        keyword: item.keyword_data?.keyword || '',
+                        position: item.ranked_serp_element?.rank_absolute || 0,
+                        volume: item.keyword_data?.keyword_info?.search_volume || 0,
+                        difficulty: item.keyword_data?.keyword_info?.competition || 0,
+                        cpc: item.keyword_data?.keyword_info?.cpc || 0,
+                        url: item.ranked_serp_element?.url || ''
+                    }));
+                }
+                
+                // If keywords were provided, also analyze them
+                if (keywords && keywords.length > 0) {
+                    const keywordsResponse = await fetch('https://api.dataforseo.com/v3/keywords_data/google_ads/keywords_for_keywords/live', {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify([{
+                            keywords: keywords.slice(0, 10), // Limit to 10 keywords to save costs
+                            location_code: 2840,
+                            language_code: 'en'
+                        }])
+                    });
+                    
+                    const keywordsData = await keywordsResponse.json();
+                    
+                    if (keywordsData.tasks && keywordsData.tasks[0] && keywordsData.tasks[0].result) {
+                        report.analyzedKeywords = keywordsData.tasks[0].result.map(item => ({
+                            keyword: item.keyword || '',
+                            volume: item.search_volume || 0,
+                            competition: item.competition || '',
+                            cpc: item.cpc || 0
+                        }));
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching keyword data:', error);
             }
         }
         

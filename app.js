@@ -106,7 +106,7 @@ function displayReport(data) {
             <div class="metric-grid">
                 <div class="metric">
                     <div class="metric-label">Organic Traffic</div>
-                    <div class="metric-value">${formatNumber(data.overview.organic_traffic)}</div>
+                    <div class="metric-value">${formatNumber(Math.round(data.overview.organic_traffic))}</div>
                 </div>
                 <div class="metric">
                     <div class="metric-label">Keywords Ranking</div>
@@ -114,9 +114,42 @@ function displayReport(data) {
                 </div>
                 <div class="metric">
                     <div class="metric-label">Traffic Value</div>
-                    <div class="metric-value">$${formatNumber(data.overview.traffic_value)}</div>
+                    <div class="metric-value">$${formatNumber(Math.round(data.overview.traffic_value))}</div>
                 </div>
             </div>
+        `;
+    }
+    
+    // Competitors Section
+    if (data.competitors && data.competitors.length > 0) {
+        html += `
+            <h2 style="margin: 2rem 0 1rem;">Top Competitors</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Competitor Domain</th>
+                        <th>Common Keywords</th>
+                        <th>Their Traffic</th>
+                        <th>Their Keywords</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        data.competitors.forEach(comp => {
+            html += `
+                <tr>
+                    <td>${comp.domain}</td>
+                    <td>${formatNumber(comp.overlap_keywords)}</td>
+                    <td>${formatNumber(Math.round(comp.their_traffic))}</td>
+                    <td>${formatNumber(comp.their_keywords)}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                </tbody>
+            </table>
         `;
     }
     
@@ -141,8 +174,44 @@ function displayReport(data) {
         `;
     }
     
-    // Keywords
-    if (data.keywords && data.keywords.length > 0) {
+    // Top Keywords the domain ranks for
+    if (data.topKeywords && data.topKeywords.length > 0) {
+        html += `
+            <h2 style="margin: 2rem 0 1rem;">Top Ranking Keywords</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Keyword</th>
+                        <th>Position</th>
+                        <th>Monthly Searches</th>
+                        <th>CPC</th>
+                        <th>URL</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        data.topKeywords.forEach(kw => {
+            const shortUrl = kw.url.replace(/^https?:\/\/[^\/]+/, '').substring(0, 50);
+            html += `
+                <tr>
+                    <td>${kw.keyword}</td>
+                    <td style="text-align: center; color: ${kw.position <= 3 ? '#10b981' : kw.position <= 10 ? '#3b82f6' : '#64748b'}">${kw.position}</td>
+                    <td>${formatNumber(kw.volume)}</td>
+                    <td>$${kw.cpc.toFixed(2)}</td>
+                    <td title="${kw.url}">${shortUrl}${shortUrl.length >= 50 ? '...' : ''}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                </tbody>
+            </table>
+        `;
+    }
+    
+    // Analyzed Keywords (if user provided specific keywords)
+    if (data.analyzedKeywords && data.analyzedKeywords.length > 0) {
         html += `
             <h2 style="margin: 2rem 0 1rem;">Keyword Analysis</h2>
             <table>
@@ -157,7 +226,7 @@ function displayReport(data) {
                 <tbody>
         `;
         
-        data.keywords.forEach(kw => {
+        data.analyzedKeywords.forEach(kw => {
             html += `
                 <tr>
                     <td>${kw.keyword}</td>
