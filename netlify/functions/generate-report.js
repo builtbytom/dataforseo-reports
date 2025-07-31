@@ -55,7 +55,7 @@ exports.handler = async (event, context) => {
         }
         
         // Parse request body
-        const { domain, reportType, keywords } = JSON.parse(event.body);
+        const { domain, reportType } = JSON.parse(event.body);
         
         // Log request for tracking
         console.log('Report Request:', {
