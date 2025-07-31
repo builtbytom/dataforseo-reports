@@ -258,6 +258,22 @@ exports.handler = async (event, context) => {
         
         // Detailed Report - add comprehensive backlink analysis
         if (reportType === 'detailed') {
+            console.log('Starting detailed report analysis...');
+            
+            // For now, just add dummy data to test
+            report.detailedBacklinks = {
+                total: 123,
+                domains: 45,
+                main_domain_rank: 67,
+                dofollow: 100,
+                nofollow: 23,
+                gov: 2,
+                edu: 3,
+                referring_ips: 40,
+                referring_subnets: 35
+            };
+            
+            /* Disabled for now - this might be timing out
             try {
                 // 1. Get detailed backlink metrics
                 const backlinksResponse = await fetch('https://api.dataforseo.com/v3/backlinks/summary/live', {
@@ -271,7 +287,12 @@ exports.handler = async (event, context) => {
                 });
                 
                 const backlinksData = await backlinksResponse.json();
-                console.log('Backlinks API response:', backlinksData.tasks?.[0]?.status_message);
+                console.log('Backlinks API full response:', JSON.stringify(backlinksData, null, 2));
+                
+                if (backlinksData.tasks && backlinksData.tasks[0]) {
+                    console.log('Backlinks task status:', backlinksData.tasks[0].status_code);
+                    console.log('Backlinks task message:', backlinksData.tasks[0].status_message);
+                }
                 
                 if (backlinksData.tasks?.[0]?.result?.[0]) {
                     const result = backlinksData.tasks[0].result[0];
@@ -295,6 +316,7 @@ exports.handler = async (event, context) => {
             } catch (error) {
                 console.error('Error fetching backlink data:', error);
             }
+            */
         }
         
         return {
