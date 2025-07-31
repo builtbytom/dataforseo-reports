@@ -109,7 +109,7 @@ exports.handler = async (event, context) => {
                         // For local businesses, use Google Maps to find actual competitors
                         const businessName = domain.split('.')[0].replace(/[^a-z0-9]/gi, ' ');
                         
-                        // First, search Google Maps for the business to get its category
+                        // First, search Google Maps for the business to get its category AND location
                         const mapsSearchResponse = await fetch('https://api.dataforseo.com/v3/serp/google/maps/live/advanced', {
                             method: 'POST',
                             headers,
@@ -123,44 +123,97 @@ exports.handler = async (event, context) => {
                         const mapsData = await mapsSearchResponse.json();
                         console.log('Maps Search Response:', mapsData.tasks?.[0]?.status_message);
                         
-                        // Get the business category from the first result
+                        // Get the business category AND city from the first result
                         let category = 'business';
+                        let businessCity = '';
                         if (mapsData.tasks?.[0]?.result?.[0]?.items?.[0]) {
                             const firstResult = mapsData.tasks[0].result[0].items[0];
                             category = firstResult.category || firstResult.place_type || 'business';
+                            
+                            // Extract city from address
+                            if (firstResult.address) {
+                                // Address format: "123 Main St, City, ST 12345"
+                                const addressParts = firstResult.address.split(',');
+                                if (addressParts.length >= 2) {
+                                    businessCity = addressParts[addressParts.length - 2].trim();
+                                }
+                            }
                             console.log('Detected business category:', category);
+                            console.log('Business city:', businessCity);
                         }
                         
-                        // Now search for similar businesses in the area
+                        // Now search for similar businesses in the SAME CITY
+                        const searchQuery = businessCity ? 
+                            `${category} in ${businessCity} Connecticut` : 
+                            `${category} near Connecticut`;
+                            
                         const competitorSearchResponse = await fetch('https://api.dataforseo.com/v3/serp/google/maps/live/advanced', {
                             method: 'POST',
                             headers,
                             body: JSON.stringify([{
-                                keyword: category + ' near Connecticut',
+                                keyword: searchQuery,
                                 location_code: 2840,
                                 language_code: 'en',
                                 depth: 20
                             }])
                         });
                         
+                        console.log('Competitor search query:', searchQuery);
+                        
                         const competitorData = await competitorSearchResponse.json();
                         
                         if (competitorData.tasks?.[0]?.result?.[0]?.items) {
                             const mapItems = competitorData.tasks[0].result[0].items;
                             
-                            // Extract competitor info from Maps results
-                            report.competitors = mapItems
-                                .filter(item => item.domain && item.domain !== domain)
-                                .slice(0, 5)
-                                .map(item => ({
-                                    domain: item.domain || item.title,
-                                    name: item.title,
-                                    rating: item.rating?.value || 'N/A',
-                                    reviews: item.rating?.votes_count || 0,
-                                    address: item.address || 'N/A'
-                                }));
+                            // Filter and sort competitors
+                            const competitors = mapItems
+                                .filter(item => {
+                                    // Skip if no domain or it's the same business
+                                    if (!item.domain || item.domain === domain) return false;
+                                    
+                                    // Skip if it's the same business name
+                                    if (item.title && item.title.toLowerCase().includes(businessName.toLowerCase())) return false;
+                                    
+                                    return true;
+                                })
+                                .map(item => {
+                                    // Extract city from competitor address
+                                    let competitorCity = '';
+                                    if (item.address) {
+                                        const parts = item.address.split(',');
+                                        if (parts.length >= 2) {
+                                            competitorCity = parts[parts.length - 2].trim();
+                                        }
+                                    }
+                                    
+                                    return {
+                                        domain: item.domain || item.title,
+                                        name: item.title,
+                                        rating: item.rating?.value || 'N/A',
+                                        reviews: item.rating?.votes_count || 0,
+                                        address: item.address || 'N/A',
+                                        city: competitorCity,
+                                        sameCity: competitorCity === businessCity
+                                    };
+                                });
                             
-                            console.log(`Found ${report.competitors.length} local competitors`);
+                            // Sort by same city first, then by review count
+                            competitors.sort((a, b) => {
+                                if (a.sameCity && !b.sameCity) return -1;
+                                if (!a.sameCity && b.sameCity) return 1;
+                                return b.reviews - a.reviews;
+                            });
+                            
+                            // Take top 5, preferring same-city businesses
+                            report.competitors = competitors.slice(0, 5).map(comp => ({
+                                domain: comp.domain,
+                                name: comp.name,
+                                rating: comp.rating,
+                                reviews: comp.reviews,
+                                address: comp.address
+                            }));
+                            
+                            console.log(`Found ${report.competitors.length} local competitors (${competitors.filter(c => c.sameCity).length} in same city)`);
                         } else {
                             report.competitors = [];
                         }
